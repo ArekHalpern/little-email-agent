@@ -1,8 +1,15 @@
 import { type NextRequest } from 'next/server'
 import { updateSession } from './lib/auth/supabase/middleware'
 
-
 export async function middleware(request: NextRequest) {
+  // Skip auth check for landing pages
+  if (request.nextUrl.pathname === '/' || 
+      request.nextUrl.pathname.startsWith('/blog') ||
+      request.nextUrl.pathname.startsWith('/features') ||
+      request.nextUrl.pathname.startsWith('/pricing')) {
+    return;
+  }
+  
   return await updateSession(request)
 }
 
