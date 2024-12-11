@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "boiler": "git add . && git commit -m 'update' && git push origin main",
+    "email": "git add . && git commit -m 'update' && git push email-agent main"
   },
   "dependencies": {
     "@prisma/client": "^6.0.1",
