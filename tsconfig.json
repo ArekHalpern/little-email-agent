@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["*"],
+      "@/components/*": ["components/*"],
+      "@/lib/*": ["lib/*"]
     },
     "types": ["@supabase/supabase-js", "@supabase/ssr"],
     "baseUrl": "."
