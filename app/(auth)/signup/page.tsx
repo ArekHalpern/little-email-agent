@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GoogleAuth from "../_components/GoogleAuth";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 
 export default function SignupPage() {
   return (
@@ -17,17 +17,45 @@ export default function SignupPage() {
         </Link>
       </div>
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold tracking-tight">
-            Create an account
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Create your account
           </h2>
-          <p className="text-sm text-muted-foreground mt-2">
-            Enter your details below to create your account
+          <p className="text-sm text-muted-foreground">
+            Start managing your emails smarter, faster, and easier
           </p>
         </div>
 
-        <form className="mt-8 space-y-4">
-          <div className="space-y-4">
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" />
+              <span className="text-sm">Free 14-day trial</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" />
+              <span className="text-sm">No credit card required</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" />
+              <span className="text-sm">Cancel anytime</span>
+            </div>
+          </div>
+
+          <GoogleAuth mode="signup" />
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+
+          <form className="space-y-4">
             <div>
               <Input
                 id="name"
@@ -55,37 +83,22 @@ export default function SignupPage() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Create a password"
                 required
                 className="w-full"
               />
             </div>
-          </div>
 
-          <div>
             <Button
               type="submit"
               formAction={signup}
               className="w-full"
               size="lg"
             >
-              Create account
+              Get started
             </Button>
-          </div>
-        </form>
-
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
+          </form>
         </div>
-
-        <GoogleAuth />
 
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}

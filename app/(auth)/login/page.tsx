@@ -72,7 +72,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <GoogleAuth />
+        <GoogleAuth mode="login" />
 
         <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}

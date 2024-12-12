@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/auth/supabase/client";
 import React from "react";
 
-export default function GoogleAuth() {
+interface GoogleAuthProps {
+  mode?: "signup" | "login";
+}
+
+export default function GoogleAuth({ mode = "signup" }: GoogleAuthProps) {
   const supabase = createClient();
 
   const handleGoogleSignIn = async () => {
@@ -36,7 +40,7 @@ export default function GoogleAuth() {
       onClick={handleGoogleSignIn}
     >
       <Icons.google className="mr-2 h-5 w-5" />
-      Sign up with Google
+      {mode === "signup" ? "Sign up with Google" : "Sign in with Google"}
     </Button>
   );
 }

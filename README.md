@@ -1,4 +1,14 @@
-steps to run
+# Setup Instructions
+
+## Prerequisites
+
+- Node.js and npm installed
+- A Supabase account
+- PostgreSQL database (provided by Supabase)
+
+## Installation
+
+1. Install dependencies:
 
 npm install
 
