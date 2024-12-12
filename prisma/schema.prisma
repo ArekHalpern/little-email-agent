@@ -8,10 +8,22 @@ generator client {
 }
 
 model Customer {
-    id           String   @id @default(cuid())
-    auth_user_id String   @unique // This links to Supabase auth.id
-    email        String   @unique
+    id           String        @id @default(cuid())
+    auth_user_id String        @unique // This links to Supabase auth.id
+    email        String        @unique
     name         String?
-    createdAt    DateTime @default(now())
-    updatedAt    DateTime @updatedAt
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+    emailPrompts EmailPrompt[]
+}
+
+model EmailPrompt {
+    id          String   @id @default(cuid())
+    name        String // e.g., "Reservation Extractor", "Meeting Summarizer"
+    description String?
+    prompt      String // The actual system prompt
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    customer    Customer @relation(fields: [customerId], references: [id])
+    customerId  String
 }

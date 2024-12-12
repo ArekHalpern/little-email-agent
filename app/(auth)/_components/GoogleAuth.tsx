@@ -20,8 +20,14 @@ export default function GoogleAuth({ mode = "signup" }: GoogleAuthProps) {
           redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
           queryParams: {
             access_type: "offline",
-            prompt: "consent",
+            prompt: "consent select_account",
             next: "/dashboard",
+            provider: "google",
+            scope: [
+              "email",
+              "profile",
+              "https://www.googleapis.com/auth/gmail.readonly",
+            ].join(" "),
           },
         },
       });

@@ -1,9 +1,7 @@
-import { signup } from "../actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import GoogleAuth from "../_components/GoogleAuth";
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function SignupPage() {
   return (
@@ -43,61 +41,6 @@ export default function SignupPage() {
           </div>
 
           <GoogleAuth mode="signup" />
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with email
-              </span>
-            </div>
-          </div>
-
-          <form className="space-y-4">
-            <div>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Full name"
-                required
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="name@example.com"
-                required
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Create a password"
-                required
-                className="w-full"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              formAction={signup}
-              className="w-full"
-              size="lg"
-            >
-              Get started
-            </Button>
-          </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground">

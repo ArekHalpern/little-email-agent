@@ -86,3 +86,32 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.email-content {
+  @apply text-base leading-relaxed;
+}
+
+.email-content a {
+  @apply text-blue-600 hover:underline;
+}
+
+.email-content img {
+  @apply max-w-full h-auto;
+}
+
+.email-content table {
+  @apply w-full border-collapse;
+}
+
+.email-content td {
+  @apply p-2;
+}
+
+/* Handle email-specific styles */
+.email-content [style*="background"] {
+  @apply bg-opacity-10;
+}
+
+.email-content [style*="font-family"] {
+  @apply font-sans;
+}
