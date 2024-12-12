@@ -1,4 +1,5 @@
 import React from "react";
+import DashboardNav from "./_components/DashboardNav";
 
 export default function DashboardLayout({
   children,
@@ -6,11 +7,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen">
-      <div className="flex">
-        {/* Sidebar can be added here later */}
-        <main className="flex-1">{children}</main>
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <DashboardNav />
+      <main className="flex-1 container mx-auto p-8">{children}</main>
     </div>
   );
 }

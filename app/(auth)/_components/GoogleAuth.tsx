@@ -1,8 +1,8 @@
 "use client";
 
 import { Icons } from "./Icons";
-import { Button } from "../../../components/ui/button";
-import { createClient } from "../../../lib/auth/supabase/client";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/auth/supabase/client";
 import React from "react";
 
 export default function GoogleAuth() {
@@ -17,6 +17,7 @@ export default function GoogleAuth() {
           queryParams: {
             access_type: "offline",
             prompt: "consent",
+            next: "/dashboard",
           },
         },
       });

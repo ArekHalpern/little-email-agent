@@ -22,7 +22,7 @@ export async function login(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  redirect('/dashboard')
 }
 
 export async function signup(formData: FormData) {
@@ -32,7 +32,6 @@ export async function signup(formData: FormData) {
   const password = formData.get('password') as string
   const name = formData.get('name') as string
 
-  // First create the Supabase auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -44,7 +43,6 @@ export async function signup(formData: FormData) {
   }
 
   try {
-    // Create the corresponding Customer record in Prisma
     await prisma.customer.create({
       data: {
         auth_user_id: authData.user.id,
@@ -54,11 +52,10 @@ export async function signup(formData: FormData) {
     })
   } catch (error) {
     console.error('Prisma error:', error)
-    // If Prisma creation fails, we should probably delete the Supabase user
     await supabase.auth.admin.deleteUser(authData.user.id)
     redirect('/error')
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  redirect('/dashboard')
 }

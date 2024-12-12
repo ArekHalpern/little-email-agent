@@ -1,6 +1,34 @@
+"use client";
+
 import Link from "next/link";
+import { createClient } from "@/lib/auth/supabase/client";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
   return (
     <nav className="fixed w-full backdrop-blur-sm z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -23,13 +51,21 @@ export default function Navbar() {
               </Link>
             </div>
           </div>
-          <div className="hidden md:block">
-            <Link
-              href="/dashboard"
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
-            >
-              Dashboard
-            </Link>
+          <div className="hidden md:flex gap-4">
+            {isAuthenticated ? (
+              <Link href="/dashboard">
+                <Button>Dashboard</Button>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Login</Button>
+                </Link>
+                <Link href="/signup">
+                  <Button>Sign up</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
