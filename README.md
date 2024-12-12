@@ -17,7 +17,6 @@ npx prisma generate
 npx prisma db push
 
 supabase:
-
 - Create a Supabase project
 - Add these env variables:
   NEXT_PUBLIC_SUPABASE_URL=your_project_url
@@ -25,7 +24,6 @@ supabase:
   DATABASE_URL=your_db_url
 
 env:
-
 - Copy .env.example to .env
 - Fill in the required values
 
