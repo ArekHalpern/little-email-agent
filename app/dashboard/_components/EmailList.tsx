@@ -8,8 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PromptSelector } from "./PromptSelector";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, Loader2 } from "lucide-react";
 import type { EmailPromptPayload } from "../actions";
+import { getCustomerPrompts } from "../actions";
+import { createClient } from "@/lib/auth/supabase/client";
 
 interface Email {
   id: string;
@@ -43,12 +51,33 @@ export default function EmailList() {
     email: Email;
     thread?: EmailThread;
   } | null>(null);
-  const [selectedPrompt, setSelectedPrompt] =
-    useState<EmailPromptPayload | null>(null);
+  const [prompts, setPrompts] = useState<EmailPromptPayload[]>([]);
+  const [processingEmails, setProcessingEmails] = useState<
+    Record<string, boolean>
+  >({});
+  const [emailSummaries, setEmailSummaries] = useState<Record<string, string>>(
+    {}
+  );
 
   useEffect(() => {
     fetchEmails();
+    fetchPrompts();
   }, []);
+
+  const fetchPrompts = async () => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const templates = await getCustomerPrompts(session.user.id);
+        setPrompts(templates);
+      }
+    } catch (error) {
+      console.error("Error fetching prompts:", error);
+    }
+  };
 
   const fetchEmails = async () => {
     try {
@@ -112,50 +141,85 @@ export default function EmailList() {
     return decoded;
   };
 
+  const processEmail = async (emailId: string, promptId: string) => {
+    try {
+      setProcessingEmails((prev) => ({ ...prev, [emailId]: true }));
+
+      const email = emails.find((e) => e.id === emailId);
+      if (!email) return;
+
+      const emailContent = email.snippet; // Or use the full email content if needed
+
+      const response = await fetch("/api/openai/custom-email-sythesizer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailContent, promptId }),
+      });
+
+      if (!response.ok) throw new Error("Failed to process email");
+
+      const data = await response.json();
+      setEmailSummaries((prev) => ({ ...prev, [emailId]: data.result }));
+    } catch (error) {
+      console.error("Error processing email:", error);
+    } finally {
+      setProcessingEmails((prev) => ({ ...prev, [emailId]: false }));
+    }
+  };
+
   if (loading) return <div>Loading emails...</div>;
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Inbox</h2>
-        {selectedPrompt && (
-          <div className="text-sm text-muted-foreground">
-            Using prompt: {selectedPrompt.name}
-          </div>
-        )}
-      </div>
-
-      <PromptSelector onPromptSelect={setSelectedPrompt} />
-
-      <div className="space-y-2">
-        {emails.map((email) => (
+    <div className="space-y-2 p-4">
+      <h2 className="text-xl font-bold mb-6">Inbox</h2>
+      {emails.map((email) => (
+        <div key={email.id} className="flex gap-4 items-start">
           <div
-            key={email.id}
-            className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
+            className="flex-1 p-4 border rounded-lg hover:bg-gray-50 cursor-pointer"
             onClick={() => handleEmailClick(email.id)}
           >
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-medium">{getEmailSubject(email)}</h3>
                 <p className="text-sm text-gray-600">{getEmailFrom(email)}</p>
-                <p className="mt-1 text-sm">{email.snippet}</p>
+                <p className="mt-1 text-sm line-clamp-2">{email.snippet}</p>
               </div>
-              {selectedPrompt && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // TODO: Process email with selected prompt
-                  }}
-                >
-                  Process with {selectedPrompt.name}
-                </Button>
-              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Process with{" "}
+                    {processingEmails[email.id] && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                  {prompts.map((prompt) => (
+                    <DropdownMenuItem
+                      key={prompt.id}
+                      onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                        e.stopPropagation();
+                        processEmail(email.id, prompt.id);
+                      }}
+                    >
+                      {prompt.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-        ))}
-      </div>
+          {emailSummaries[email.id] && (
+            <div className="w-96 p-4 border rounded-lg bg-muted/50">
+              <h4 className="font-medium mb-2">Summary</h4>
+              <div className="text-sm whitespace-pre-wrap">
+                {emailSummaries[email.id]}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
 
       <Dialog
         open={!!selectedEmail}

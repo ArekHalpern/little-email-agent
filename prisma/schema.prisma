@@ -1,29 +1,29 @@
-datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+generator client {
+  provider = "prisma-client-js"
 }
 
-generator client {
-    provider = "prisma-client-js"
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Customer {
-    id           String        @id @default(cuid())
-    auth_user_id String        @unique // This links to Supabase auth.id
-    email        String        @unique
-    name         String?
-    createdAt    DateTime      @default(now())
-    updatedAt    DateTime      @updatedAt
-    emailPrompts EmailPrompt[]
+  id           String        @id
+  auth_user_id String        @unique
+  email        String        @unique
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  EmailPrompt  EmailPrompt[]
 }
 
 model EmailPrompt {
-    id          String   @id @default(cuid())
-    name        String // e.g., "Reservation Extractor", "Meeting Summarizer"
-    description String?
-    prompt      String // The actual system prompt
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-    customer    Customer @relation(fields: [customerId], references: [id])
-    customerId  String
+  id          String   @id
+  name        String
+  description String?
+  prompt      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  customerId  String
+  Customer    Customer @relation(fields: [customerId], references: [id])
 }

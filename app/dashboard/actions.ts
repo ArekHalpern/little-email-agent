@@ -44,7 +44,7 @@ interface EmailPromptInput {
 export async function getCustomerPrompt(userId: string, promptId: string) {
   const customer = await ensureCustomer(userId)
   
-  return prisma.emailprompt.findFirst({
+  return prisma.emailPrompt.findFirst({
     where: {
       id: promptId,
       customerId: customer.id
@@ -55,7 +55,7 @@ export async function getCustomerPrompt(userId: string, promptId: string) {
 export async function createEmailPrompt(userId: string, data: EmailPromptInput) {
   const customer = await ensureCustomer(userId)
 
-  return prisma.emailprompt.create({
+  return prisma.emailPrompt.create({
     data: {
       ...data,
       customerId: customer.id
@@ -66,7 +66,7 @@ export async function createEmailPrompt(userId: string, data: EmailPromptInput) 
 export async function getCustomerPrompts(userId: string) {
   const customer = await ensureCustomer(userId)
 
-  return prisma.emailprompt.findMany({
+  return prisma.emailPrompt.findMany({
     where: {
       customerId: customer.id
     },
