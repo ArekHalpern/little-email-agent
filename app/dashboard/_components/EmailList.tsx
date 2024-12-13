@@ -472,14 +472,18 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
         onOpenChange={() => setSelectedEmail(null)}
       >
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedEmail && getEmailSubject(selectedEmail.email)}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedEmail && getEmailFrom(selectedEmail.email)}
-            </DialogDescription>
-          </DialogHeader>
+          <div className="sticky top-0 z-50 flex flex-col gap-1.5 bg-background pb-4">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedEmail && getEmailSubject(selectedEmail.email)}
+              </DialogTitle>
+              <DialogDescription>
+                {new Date(
+                  parseInt(selectedEmail?.email.internalDate || "0")
+                ).toLocaleString()}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
           {selectedEmail?.thread ? (
             <div className="space-y-6">
@@ -495,7 +499,11 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                   <div className="mb-2 flex justify-between items-center">
                     <div>
                       <p className="text-sm font-medium">
-                        {getEmailFrom(message)}
+                        {
+                          message.payload?.headers.find(
+                            (h) => h.name.toLowerCase() === "from"
+                          )?.value
+                        }
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(
