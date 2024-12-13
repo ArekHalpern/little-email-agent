@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { createClient } from "@/lib/auth/supabase/client";
-import { Mail, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { User } from "@supabase/supabase-js";
@@ -106,7 +106,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
+                    <Shield className="h-4 w-4" />
                     <h3 className="font-medium">Gmail Connection</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">

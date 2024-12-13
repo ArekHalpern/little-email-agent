@@ -29,7 +29,7 @@ export function EmailViewModal({
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, email?.id]);
+  }, [isOpen, email]);
 
   const decodeEmailBody = (email: Email) => {
     const htmlPart = email.payload?.parts?.find(

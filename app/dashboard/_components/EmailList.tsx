@@ -3,14 +3,7 @@
 import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Loader2, Mail, MoreVertical, Sparkles, MailOpen } from "lucide-react";
-import type { EmailPromptPayload } from "../actions";
+import { Loader2, Sparkles, MailOpen } from "lucide-react";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -29,16 +22,12 @@ interface EmailListProps {
 
 export default function EmailList({ onEmailSelect }: EmailListProps) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [emails, setEmails] = useState<Email[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<{
     email: Email;
     thread?: EmailThread;
   } | null>(null);
-  const [prompts, setPrompts] = useState<EmailPromptPayload[]>([]);
-  const [processingEmails, setProcessingEmails] = useState<
-    Record<string, boolean>
-  >({});
   const [authError, setAuthError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const EMAILS_PER_PAGE = 10;
@@ -68,8 +57,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
-        const templates = await getCustomerPrompts(session.user.id);
-        setPrompts(templates);
+        await getCustomerPrompts(session.user.id);
       }
     } catch (error) {
       console.error("Error fetching prompts:", error);
@@ -142,7 +130,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     );
   };
 
-  const processEmail = async (emailId: string, promptId: string) => {
+  const processEmail = async (emailId: string) => {
     try {
       router.push(`/dashboard/summaries/${emailId}`);
     } catch (error) {
@@ -354,7 +342,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          {emails.length > 0 && (
+          {totalEmails > 0 && (
             <p className="text-xs sm:text-sm text-muted-foreground">
               Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
               {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
@@ -363,7 +351,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
           )}
         </div>
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          {emails.map((email) => (
+          {emails.map((email: Email) => (
             <div
               key={`email-${email.id}`}
               className="border-b p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors max-w-full"
@@ -384,7 +372,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                             className="h-8 w-8 p-0"
                             onClick={(e) => {
                               e.stopPropagation();
-                              processEmail(email.id, prompts[0]?.id);
+                              processEmail(email.id);
                             }}
                           >
                             <Sparkles className="h-4 w-4" />
@@ -419,7 +407,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
               </div>
             </div>
           ))}
-          {emails.length > 0 && (
+          {totalEmails > 0 && (
             <>
               <div className="hidden sm:block">
                 <Pagination

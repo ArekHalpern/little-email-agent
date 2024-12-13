@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { updateCustomerGoogleTokens } from '@/lib/db/actions'
-import { headers } from 'next/headers'
 import { prisma } from '@/lib/db/prisma'
 import { createClient } from '@/lib/auth/supabase/server'
 
