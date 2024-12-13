@@ -4,15 +4,13 @@ import { LogOut, Mail, Settings, User } from "lucide-react";
 import {
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
   SidebarSeparator,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -47,33 +45,37 @@ export function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader />
-      <SidebarContent className="pt-4">
-        <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarHeader className="hidden md:block">
+        <SidebarTrigger className="flex h-8 w-full items-center justify-start pl-[11px]" />
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarMenu className="pt-1">
+          {items.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild tooltip={item.title}>
+                <Link
+                  href={item.url}
+                  className="flex h-8 w-full items-center pl-3"
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="ml-2">{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarContent>
       <SidebarSeparator />
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleSignOut} tooltip="Logout">
-              <LogOut />
-              <span>Logout</span>
+            <SidebarMenuButton
+              onClick={handleSignOut}
+              tooltip="Logout"
+              className="flex h-8 w-full items-center pl-3"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="ml-2">Logout</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

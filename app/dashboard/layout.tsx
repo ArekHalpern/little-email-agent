@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import {
   SidebarProvider,
-  SidebarTrigger,
   SidebarInset,
   Sidebar,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "./_components/app-sidebar";
 
@@ -22,9 +22,9 @@ export default async function DashboardLayout({
           <AppSidebar />
         </Sidebar>
         <SidebarInset className="relative flex min-h-svh flex-1 flex-col bg-background">
-          <header className="flex h-16 items-center bg-background px-4">
+          <div className="flex h-16 items-center bg-background px-4 md:hidden">
             <SidebarTrigger />
-          </header>
+          </div>
           <main className="flex-1">{children}</main>
         </SidebarInset>
       </div>

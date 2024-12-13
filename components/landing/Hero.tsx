@@ -1,3 +1,5 @@
+import GoogleAuth from "@/app/(auth)/_components/GoogleAuth";
+
 export default function Hero() {
   return (
     <div className="relative isolate pt-14">
@@ -11,16 +13,8 @@ export default function Hero() {
               Let AI handle your inbox. Little Email Agent reads, categorizes,
               and responds to emails intelligently, saving you hours every week.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
-              <a
-                href="/signup"
-                className="rounded-md bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-              >
-                Get started
-              </a>
-              <a href="#features" className="text-sm font-semibold leading-6">
-                Learn more <span aria-hidden="true">→</span>
-              </a>
+            <div className="mt-10">
+              <GoogleAuth mode="signup" />
             </div>
           </div>
         </div>

@@ -39,17 +39,7 @@ export default function Navbar() {
             </Link>
           </div>
           <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <Link href="/features" className="hover:text-primary px-3 py-2">
-                Features
-              </Link>
-              <Link href="/pricing" className="hover:text-primary px-3 py-2">
-                Pricing
-              </Link>
-              <Link href="/blog" className="hover:text-primary px-3 py-2">
-                Blog
-              </Link>
-            </div>
+            <div className="ml-10 flex items-baseline space-x-4"></div>
           </div>
           <div className="hidden md:flex gap-4">
             {isAuthenticated ? (
@@ -57,14 +47,9 @@ export default function Navbar() {
                 <Button>Dashboard</Button>
               </Link>
             ) : (
-              <>
-                <Link href="/login">
-                  <Button variant="ghost">Login</Button>
-                </Link>
-                <Link href="/signup">
-                  <Button>Sign up</Button>
-                </Link>
-              </>
+              <Link href="/login">
+                <Button variant="ghost">Login</Button>
+              </Link>
             )}
           </div>
         </div>

@@ -1,32 +1,18 @@
 import { prisma } from './prisma'
 import { randomUUID } from 'crypto'
+import templatesJson from './templates.json'
 
-const DEFAULT_TEMPLATES = [
-  {
-    name: "Email Summarizer",
-    description: "Get a concise summary of long email threads",
-    prompt: `You are a helpful assistant that summarizes email content clearly and concisely.
-Extract and organize the following:
-- Main topic/subject
-- Key points
-- Action items (if any)
-- Important dates/deadlines
-- Next steps or required responses
-Present the summary in a clear, bulleted format.`,
-  },
-  {
-    name: "Reservation Details",
-    description: "Extract key details from restaurant reservation emails",
-    prompt: `You are a helpful assistant that extracts restaurant reservation details from emails. 
-Extract the following information if present:
-- Restaurant name
-- Date and time
-- Number of guests
-- Special requests
-- Contact information
-Format the response in a clear, structured way.`,
-  },
-];
+interface EmailTemplate {
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+interface Templates {
+  defaultTemplates: EmailTemplate[];
+}
+
+const templates = templatesJson as Templates;
 
 export async function getCustomerByAuthId(authUserId: string) {
   return await prisma.customer.findUnique({
@@ -48,7 +34,7 @@ export async function createCustomer(data: {
     // Create the customer
     const customer = await tx.customer.create({
       data: {
-        id: randomUUID(),  // Generate UUID for customer
+        id: randomUUID(),
         auth_user_id: data.authUserId,
         email: data.email,
         name: data.name,
@@ -57,13 +43,13 @@ export async function createCustomer(data: {
 
     // Create default templates for the customer
     await Promise.all(
-      DEFAULT_TEMPLATES.map((template) =>
+      templates.defaultTemplates.map((template) =>
         tx.emailPrompt.create({
           data: {
-            id: randomUUID(),  // Generate UUID for each template
+            id: randomUUID(),
             ...template,
             customerId: customer.id,
-            updatedAt: new Date(),  // Set current timestamp
+            updatedAt: new Date(),
           },
         })
       )
