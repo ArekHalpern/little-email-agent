@@ -32,11 +32,11 @@ const items = [
     url: "/dashboard/profile",
     icon: User,
   },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: Settings,
-  },
+  // {
+  //   title: "Settings",
+  //   url: "/dashboard/settings",
+  //   icon: Settings,
+  // },
 ];
 
 export function AppSidebar() {
@@ -50,7 +50,7 @@ export function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="hidden md:block">
+      <SidebarHeader className="hidden md:block sticky top-0 z-10 bg-sidebar">
         <SidebarTrigger className="flex h-8 w-full items-center justify-start pl-[11px]" />
       </SidebarHeader>
       <SidebarContent>

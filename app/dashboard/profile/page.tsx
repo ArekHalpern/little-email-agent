@@ -11,9 +11,7 @@ import {
 } from "@/components/ui/card";
 import { createClient } from "@/lib/auth/supabase/client";
 import { Mail, Shield } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { User } from "@supabase/supabase-js";
 
@@ -133,77 +131,6 @@ export default function ProfilePage() {
                     ? "Reconnect"
                     : "Connect Gmail"}
                 </Button>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Auto-process new emails</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically process new emails when they arrive
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Save email summaries</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Store processed email summaries for future reference
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-none">
-            <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
-              <CardDescription>
-                Manage your account security preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    <h3 className="font-medium">Two-Factor Authentication</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Add an extra layer of security to your account
-                  </p>
-                </div>
-                <Button variant="outline">Enable 2FA</Button>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Email notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive email notifications about account activity
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Activity logging</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Keep a log of account activity and email processing
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
               </div>
             </CardContent>
           </Card>

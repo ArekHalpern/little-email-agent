@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, Mail, MoreVertical, Sparkles, Eye } from "lucide-react";
+import { Loader2, Mail, MoreVertical, Sparkles, MailOpen } from "lucide-react";
 import type { EmailPromptPayload } from "../actions";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
@@ -144,33 +144,9 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
 
   const processEmail = async (emailId: string, promptId: string) => {
     try {
-      console.log("Starting email processing:", { emailId, promptId });
-      setProcessingEmails((prev) => ({ ...prev, [emailId]: true }));
-
-      const email = emails.find((e) => e.id === emailId);
-      if (!email) {
-        console.error("Email not found:", emailId);
-        return;
-      }
-
-      // Get the OpenAI analysis
-      const response = await fetch("/api/openai/custom-email-sythesizer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailContent: email, promptId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API error:", errorData);
-        throw new Error("Failed to process email");
-      }
-
       router.push(`/dashboard/summaries/${emailId}`);
     } catch (error) {
-      console.error("Error processing email:", error);
-    } finally {
-      setProcessingEmails((prev) => ({ ...prev, [emailId]: false }));
+      console.error("Error navigating to summary:", error);
     }
   };
 
@@ -285,6 +261,42 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     );
   }
 
+  function LoadMoreButton({
+    currentPage,
+    totalEmails,
+    onLoadMore,
+    loading,
+  }: {
+    currentPage: number;
+    totalEmails: number;
+    onLoadMore: () => void;
+    loading?: boolean;
+  }) {
+    const hasMore = currentPage * EMAILS_PER_PAGE < totalEmails;
+
+    if (!hasMore) return null;
+
+    return (
+      <div className="p-4 flex justify-center">
+        <Button
+          variant="outline"
+          onClick={onLoadMore}
+          disabled={loading}
+          className="w-full sm:w-auto"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Loading...
+            </>
+          ) : (
+            "Load More"
+          )}
+        </Button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="w-full bg-background">
@@ -329,7 +341,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
   }
 
   return (
-    <div className="w-full bg-background overflow-x-hidden">
+    <div className="w-full bg-background overflow-x-hidden h-full">
       <div className="flex flex-col h-full">
         <div className="border-b p-3 sm:p-4 space-y-3 sm:space-y-4">
           <h2 className="font-semibold text-sm sm:text-base">Inbox</h2>
@@ -359,65 +371,73 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
             >
               <div className="flex flex-col gap-3 max-w-full">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-medium truncate text-sm sm:text-base">
-                    {getEmailSubject(email)}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                  <div className="flex flex-wrap justify-between items-start gap-2 mb-1">
+                    <h3 className="font-medium text-sm sm:text-base break-words min-w-0 flex-1">
+                      {getEmailSubject(email)}
+                    </h3>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              processEmail(email.id, prompts[0]?.id);
+                            }}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Analyze Email</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleViewEmail(email)}
+                            className="h-8 w-8"
+                          >
+                            <MailOpen className="h-4 w-4" />
+                            <span className="sr-only">View email</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View Email</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
                     {getEmailFrom(email)}
                   </p>
-                  <p className="text-xs sm:text-sm mt-1 line-clamp-2 text-muted-foreground/80">
+                  <p className="text-xs sm:text-sm mt-1 text-muted-foreground/80 break-words">
                     {email.snippet}
                   </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          processEmail(email.id, prompts[0]?.id);
-                        }}
-                        disabled={processingEmails[email.id] || !prompts.length}
-                      >
-                        {processingEmails[email.id] ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Analyze Email</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewEmail(email);
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View Email Thread</TooltipContent>
-                  </Tooltip>
                 </div>
               </div>
             </div>
           ))}
-          <Pagination
-            currentPage={currentPage}
-            totalEmails={totalEmails}
-            onPageChange={handlePageChange}
-          />
+          {emails.length > 0 && (
+            <>
+              <div className="hidden sm:block">
+                <Pagination
+                  currentPage={currentPage}
+                  totalEmails={totalEmails}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+              <div className="sm:hidden">
+                <LoadMoreButton
+                  currentPage={currentPage}
+                  totalEmails={totalEmails}
+                  onLoadMore={() => handlePageChange(currentPage + 1)}
+                  loading={loading}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 

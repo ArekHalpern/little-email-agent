@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Email, EmailViewProps } from "../types";
 import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
 
 export function EmailViewModal({
   isOpen,
@@ -18,6 +19,18 @@ export function EmailViewModal({
   email,
   thread,
 }: EmailViewProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && email) {
+      setIsLoading(true);
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, email?.id]);
+
   const decodeEmailBody = (email: Email) => {
     const htmlPart = email.payload?.parts?.find(
       (part) => part.mimeType === "text/html"
@@ -93,7 +106,16 @@ export function EmailViewModal({
         </div>
 
         <div className="px-4">
-          {thread ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Loading content...
+                </p>
+              </div>
+            </div>
+          ) : thread ? (
             <div className="space-y-6">
               {thread.messages.map((message, index) => (
                 <div
