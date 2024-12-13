@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -19,8 +20,8 @@ import { Loader2, MoreVertical } from "lucide-react";
 import type { EmailPromptPayload } from "../actions";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
-import { EmailSummaryPanel } from "./EmailSummaryPanel";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface Email {
   id: string;
@@ -48,7 +49,12 @@ interface EmailThread {
   messages: Email[];
 }
 
-export default function EmailList(): React.JSX.Element {
+interface EmailListProps {
+  onEmailSelect: (emailId: string) => void;
+}
+
+export default function EmailList({ onEmailSelect }: EmailListProps) {
+  const router = useRouter();
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<{
@@ -59,10 +65,6 @@ export default function EmailList(): React.JSX.Element {
   const [processingEmails, setProcessingEmails] = useState<
     Record<string, boolean>
   >({});
-  const [emailSummaries, setEmailSummaries] = useState<Record<string, string>>(
-    {}
-  );
-  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const EMAILS_PER_PAGE = 10;
@@ -152,19 +154,6 @@ export default function EmailList(): React.JSX.Element {
     fetchEmails(0, page);
   };
 
-  const handleEmailSelection = async (emailId: string) => {
-    setSelectedEmailId(emailId);
-
-    try {
-      const response = await fetch(`/api/gmail/messages/${emailId}`);
-      if (!response.ok) throw new Error("Failed to fetch email");
-      const data = await response.json();
-      setSelectedEmail(data);
-    } catch (error) {
-      console.error("Error fetching email:", error);
-    }
-  };
-
   const getEmailSubject = (email: Email) => {
     return (
       email.payload.headers.find((h) => h.name.toLowerCase() === "subject")
@@ -205,27 +194,55 @@ export default function EmailList(): React.JSX.Element {
 
   const processEmail = async (emailId: string, promptId: string) => {
     try {
+      console.log("Starting email processing:", { emailId, promptId });
       setProcessingEmails((prev) => ({ ...prev, [emailId]: true }));
 
       const email = emails.find((e) => e.id === emailId);
-      if (!email) return;
-
-      const emailContent = email.snippet; // Or use the full email content if needed
+      if (!email) {
+        console.error("Email not found:", emailId);
+        return;
+      }
 
       const response = await fetch("/api/openai/custom-email-sythesizer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailContent, promptId }),
+        body: JSON.stringify({ emailContent: email.snippet, promptId }),
       });
 
-      if (!response.ok) throw new Error("Failed to process email");
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API error:", errorData);
+        throw new Error("Failed to process email");
+      }
 
-      const data = await response.json();
-      setEmailSummaries((prev) => ({ ...prev, [emailId]: data.result }));
+      router.push(`/dashboard/summaries/${emailId}`);
     } catch (error) {
       console.error("Error processing email:", error);
     } finally {
       setProcessingEmails((prev) => ({ ...prev, [emailId]: false }));
+    }
+  };
+
+  const handleViewEmail = (email: Email) => {
+    setSelectedEmail({ email });
+
+    // Fetch thread if it exists
+    if (email.threadId) {
+      fetchEmailThread(email.threadId);
+    }
+  };
+
+  const fetchEmailThread = async (threadId: string) => {
+    try {
+      const response = await fetch(`/api/gmail/messages/${threadId}`);
+      if (!response.ok) throw new Error("Failed to fetch thread");
+      const data = await response.json();
+      setSelectedEmail((prev) => ({
+        ...prev!,
+        thread: data.thread,
+      }));
+    } catch (error) {
+      console.error("Error fetching thread:", error);
     }
   };
 
@@ -255,7 +272,7 @@ export default function EmailList(): React.JSX.Element {
     );
 
     return (
-      <div className="flex justify-center items-center gap-1 p-4">
+      <div className="flex justify-center items-center gap-1 p-4 border-t">
         <Button
           variant="outline"
           size="sm"
@@ -319,191 +336,163 @@ export default function EmailList(): React.JSX.Element {
 
   if (loading) {
     return (
-      <>
-        <div className="w-[45%] border-r bg-background">
-          <div className="flex flex-col h-full">
-            <div className="border-b p-4">
-              <h2 className="font-semibold">Inbox</h2>
-            </div>
-            <div className="flex-1 overflow-auto">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={`skeleton-${i}`}
-                  className="border-b p-4 animate-pulse"
-                >
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="h-4 bg-muted rounded w-3/4" />
-                      <div className="h-3 bg-muted rounded w-1/2" />
-                      <div className="h-3 bg-muted rounded w-full" />
-                    </div>
+      <div className="w-full bg-background">
+        <div className="flex flex-col h-full">
+          <div className="border-b p-4">
+            <h2 className="font-semibold">Inbox</h2>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {[...Array(5)].map((_, i) => (
+              <div key={`skeleton-${i}`} className="border-b p-4 animate-pulse">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                    <div className="h-3 bg-muted rounded w-full" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-8 w-16 rounded-md bg-muted" />
                     <div className="h-8 w-8 rounded-md bg-muted" />
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="flex-1 bg-muted/5" />
-      </>
+      </div>
     );
   }
 
   if (authError) {
     return (
-      <>
-        <div className="w-[45%] border-r bg-background">
-          <div className="flex h-full flex-col items-center justify-center gap-4 p-4">
-            <p className="text-muted-foreground text-center">{authError}</p>
-            <Button
-              onClick={async () => {
-                const supabase = createClient();
+      <div className="w-full bg-background">
+        <div className="flex h-full flex-col items-center justify-center gap-4 p-4">
+          <p className="text-muted-foreground text-center">{authError}</p>
+          <Button
+            onClick={async () => {
+              const supabase = createClient();
 
-                // First sign out to clear any existing session
-                await supabase.auth.signOut();
+              // First sign out to clear any existing session
+              await supabase.auth.signOut();
 
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                  provider: "google",
-                  options: {
-                    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?provider=google`,
-                    scopes:
-                      "email profile https://www.googleapis.com/auth/gmail.readonly",
-                    queryParams: {
-                      access_type: "offline",
-                      prompt: "consent select_account",
-                      response_type: "code",
-                    },
+              const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                  redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?provider=google`,
+                  scopes:
+                    "email profile https://www.googleapis.com/auth/gmail.readonly",
+                  queryParams: {
+                    access_type: "offline",
+                    prompt: "consent select_account",
+                    response_type: "code",
                   },
-                });
+                },
+              });
 
-                if (error) {
-                  console.error("Auth error:", error);
-                } else if (data.url) {
-                  window.location.href = data.url;
-                }
-              }}
-            >
-              Connect Gmail Account
-            </Button>
-          </div>
+              if (error) {
+                console.error("Auth error:", error);
+              } else if (data.url) {
+                window.location.href = data.url;
+              }
+            }}
+          >
+            Connect Gmail Account
+          </Button>
         </div>
-        <div className="flex-1 bg-muted/5">
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <p>Connect your Gmail account to get started</p>
-          </div>
-        </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="w-[45%] border-r bg-background">
-        <div className="flex flex-col h-full">
-          <div className="border-b p-4 space-y-4">
-            <h2 className="font-semibold">Inbox</h2>
-            <div className="relative">
-              <input
-                type="search"
-                placeholder="Search emails..."
-                className="w-full px-3 py-2 border rounded-md"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            {emails.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
-                {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
-                {totalEmails} emails
-              </p>
-            )}
+    <div className="w-full bg-background">
+      <div className="flex flex-col h-full">
+        <div className="border-b p-4 space-y-4">
+          <h2 className="font-semibold">Inbox</h2>
+          <div className="relative">
+            <input
+              type="search"
+              placeholder="Search emails..."
+              className="w-full px-3 py-2 border rounded-md"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <div className="flex flex-col h-[calc(100%-var(--header-height))]">
-            <div className="flex-1 overflow-auto">
-              {emails
-                .filter(
-                  (email, index, self) =>
-                    index === self.findIndex((e) => e.id === email.id)
-                )
-                .map((email) => (
-                  <div
-                    key={`email-${email.id}`}
-                    className={cn(
-                      "border-b p-4 hover:bg-muted/50 cursor-pointer transition-colors",
-                      selectedEmailId === email.id && "bg-muted"
-                    )}
-                    onClick={() => handleEmailSelection(email.id)}
-                  >
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-medium truncate">
-                          {getEmailSubject(email)}
-                        </h3>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {getEmailFrom(email)}
-                        </p>
-                        <p className="text-sm mt-1 line-clamp-2 text-muted-foreground/80">
-                          {email.snippet}
-                        </p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          asChild
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                          >
-                            {processingEmails[email.id] ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <MoreVertical className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[200px]">
-                          {prompts.map((prompt) => (
-                            <DropdownMenuItem
-                              key={prompt.id}
-                              onClick={(
-                                e: React.MouseEvent<HTMLDivElement>
-                              ) => {
-                                e.stopPropagation();
-                                processEmail(email.id, prompt.id);
-                              }}
-                            >
-                              Process with {prompt.name}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-            </div>
-            <div className="border-t bg-background">
-              <Pagination
-                currentPage={currentPage}
-                totalEmails={totalEmails}
-                onPageChange={handlePageChange}
-              />
-            </div>
-          </div>
+          {emails.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
+              {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
+              {totalEmails} emails
+            </p>
+          )}
         </div>
-      </div>
-
-      <div className="flex-1 bg-muted/5">
-        <EmailSummaryPanel
-          summary={selectedEmailId ? emailSummaries[selectedEmailId] : null}
-          emailSubject={
-            selectedEmailId
-              ? getEmailSubject(emails.find((e) => e.id === selectedEmailId)!)
-              : undefined
-          }
-        />
+        <div className="flex-1 overflow-auto">
+          {emails.map((email) => (
+            <div
+              key={`email-${email.id}`}
+              className="border-b p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+              onClick={() => onEmailSelect(email.id)}
+            >
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium truncate">
+                    {getEmailSubject(email)}
+                  </h3>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {getEmailFrom(email)}
+                  </p>
+                  <p className="text-sm mt-1 line-clamp-2 text-muted-foreground/80">
+                    {email.snippet}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewEmail(email);
+                    }}
+                  >
+                    View
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      asChild
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        {processingEmails[email.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <MoreVertical className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[200px]">
+                      {prompts.map((prompt) => (
+                        <DropdownMenuItem
+                          key={prompt.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            processEmail(email.id, prompt.id);
+                          }}
+                        >
+                          Process with {prompt.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+          ))}
+          <Pagination
+            currentPage={currentPage}
+            totalEmails={totalEmails}
+            onPageChange={handlePageChange}
+          />
+        </div>
       </div>
 
       <Dialog
@@ -515,14 +504,9 @@ export default function EmailList(): React.JSX.Element {
             <DialogTitle>
               {selectedEmail && getEmailSubject(selectedEmail.email)}
             </DialogTitle>
-            <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <span>{selectedEmail && getEmailFrom(selectedEmail.email)}</span>
-              {selectedEmail?.thread?.messages && (
-                <span className="px-2 py-0.5 bg-muted rounded-full text-xs">
-                  {selectedEmail.thread.messages.length} messages in thread
-                </span>
-              )}
-            </div>
+            <DialogDescription>
+              {selectedEmail && getEmailFrom(selectedEmail.email)}
+            </DialogDescription>
           </DialogHeader>
 
           {selectedEmail?.thread ? (
@@ -569,7 +553,7 @@ export default function EmailList(): React.JSX.Element {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
 

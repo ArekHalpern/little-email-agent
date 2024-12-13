@@ -115,3 +115,9 @@ body {
 .email-content [style*="font-family"] {
   @apply font-sans;
 }
+
+/* Remove or replace the Lyft font references */
+@font-face {
+  font-family: 'System';
+  src: local(-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell);
+}

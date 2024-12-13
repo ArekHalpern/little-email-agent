@@ -17,6 +17,7 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
+    console.log('Starting email synthesis');
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -25,6 +26,7 @@ export async function POST(request: Request) {
     }
 
     const { emailContent, promptId } = await request.json()
+    console.log('Received request:', { emailContent, promptId });
 
     const prompt = await getCustomerPrompt(session.user.id, promptId) as EmailPrompt | null
     if (!prompt) {
@@ -47,14 +49,17 @@ export async function POST(request: Request) {
       temperature: 0.7,
     })
 
+    const result = completion.choices[0].message.content
+    console.log('Generated result:', result);
+
     return NextResponse.json({
-      result: completion.choices[0].message.content
+      result: result
     })
 
   } catch (error) {
     console.error('Email synthesis error:', error)
     return NextResponse.json(
-      { error: 'Failed to process email' },
+      { error: 'Failed to synthesize email' },
       { status: 500 }
     )
   }

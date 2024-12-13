@@ -8,16 +8,17 @@ datasource db {
 }
 
 model Customer {
-  id                   String        @id
-  auth_user_id         String        @unique
-  email                String        @unique
+  id                   String         @id
+  auth_user_id         String         @unique
+  email                String         @unique
   name                 String?
   google_access_token  String?
   google_refresh_token String?
   google_token_expiry  DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
   EmailPrompt          EmailPrompt[]
+  EmailSummary         EmailSummary[]
 }
 
 model EmailPrompt {
@@ -29,4 +30,14 @@ model EmailPrompt {
   updatedAt   DateTime
   customerId  String
   Customer    Customer @relation(fields: [customerId], references: [id])
+}
+
+model EmailSummary {
+  id         String   @id @default(uuid())
+  emailId    String   @unique
+  summary    String   @db.Text
+  customerId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   Customer @relation(fields: [customerId], references: [id])
 }
