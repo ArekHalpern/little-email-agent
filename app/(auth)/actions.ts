@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/auth/supabase/server'
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -45,6 +46,7 @@ export async function signup(formData: FormData) {
   try {
     await prisma.customer.create({
       data: {
+        id: randomUUID(),
         auth_user_id: authData.user.id,
         email: email,
         name: name,

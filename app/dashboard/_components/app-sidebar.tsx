@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Mail, Settings, User, FileText } from "lucide-react";
+import { LogOut, Mail, User, FileText } from "lucide-react";
 import {
   SidebarContent,
   SidebarFooter,
