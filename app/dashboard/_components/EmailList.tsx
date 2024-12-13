@@ -148,10 +148,11 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
         return;
       }
 
+      // Get the OpenAI analysis
       const response = await fetch("/api/openai/custom-email-sythesizer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailContent: email.snippet, promptId }),
+        body: JSON.stringify({ emailContent: email, promptId }),
       });
 
       if (!response.ok) {

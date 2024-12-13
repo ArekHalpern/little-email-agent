@@ -1,14 +1,14 @@
 {
   "defaultTemplates": [
     {
-      "name": "Email Summarizer",
-      "description": "Get a concise summary of long email threads",
-      "prompt": "You are a helpful assistant that summarizes email content clearly and concisely.\nExtract and organize the following:\n- Main topic/subject\n- Key points\n- Action items (if any)\n- Important dates/deadlines\n- Next steps or required responses\nPresent the summary in a clear, bulleted format."
+      "name": "Smart Email Analyzer",
+      "description": "Comprehensive email analysis with action items and key points",
+      "prompt": "Analyze the email content and extract structured information including main points, action items, dates, participants, and next steps. Determine the overall sentiment and identify any important links or attachments mentioned. Provide a concise summary that captures the essence of the communication."
     },
     {
-      "name": "Reservation Details",
-      "description": "Extract key details from restaurant reservation emails",
-      "prompt": "You are a helpful assistant that extracts restaurant reservation details from emails.\nExtract the following information if present:\n- Restaurant name\n- Date and time\n- Number of guests\n- Special requests\n- Contact information\nFormat the response in a clear, structured way."
+      "name": "Meeting Summary",
+      "description": "Extract meeting details and action items",
+      "prompt": "Analyze this email as if it contains meeting information. Extract all participants, action items, decisions made, and next steps. Pay special attention to dates and deadlines. Identify the overall sentiment of the meeting and any critical follow-up tasks."
     }
   ]
 } 

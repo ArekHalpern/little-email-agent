@@ -10,8 +10,8 @@ export default function Hero() {
               Your Personal Email Assistant
             </h1>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              Let AI handle your inbox. Little Email Agent reads, categorizes,
-              and responds to emails intelligently, saving you hours every week.
+              Let AI handle your inbox. Structured email summmaries, saving you
+              hours every week!
             </p>
             <div className="mt-10">
               <GoogleAuth mode="signup" />

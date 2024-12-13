@@ -11,7 +11,7 @@
 
 1. Install dependencies:
 
-pnpm install
+pnpm init
 
 2. Prisma setup:
 

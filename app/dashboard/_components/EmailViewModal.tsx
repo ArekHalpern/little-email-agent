@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Email, EmailViewProps } from "../types";
+import { Button } from "@/components/ui/button";
 
 export function EmailViewModal({
   isOpen,
@@ -61,21 +62,31 @@ export function EmailViewModal({
               <DialogTitle className="text-lg font-medium leading-none">
                 {email.subject}
               </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                <div className="flex gap-2">
-                  <span>{getEmailFrom(email)}</span>
-                  <span>·</span>
-                  <span>
-                    {email.internalDate
-                      ? new Date(parseInt(email.internalDate)).toLocaleString()
-                      : ""}
-                  </span>
+              <DialogDescription asChild>
+                <div className="text-sm text-muted-foreground">
+                  <div className="flex gap-2">
+                    <span>{getEmailFrom(email)}</span>
+                    <span>·</span>
+                    <span>
+                      {email.internalDate
+                        ? new Date(
+                            parseInt(email.internalDate)
+                          ).toLocaleString()
+                        : ""}
+                    </span>
+                  </div>
                 </div>
               </DialogDescription>
             </div>
-            <DialogClose className="mt-1">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-md p-0"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
             </DialogClose>
           </div>
           <div className="px-4 pb-4" />
