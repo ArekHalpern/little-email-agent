@@ -22,6 +22,7 @@ import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import GoogleAuth from "@/app/(auth)/_components/GoogleAuth";
 
 interface Email {
   id: string;
@@ -368,36 +369,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
       <div className="w-full bg-background">
         <div className="flex h-full flex-col items-center justify-center gap-4 p-4">
           <p className="text-muted-foreground text-center">{authError}</p>
-          <Button
-            onClick={async () => {
-              const supabase = createClient();
-
-              // First sign out to clear any existing session
-              await supabase.auth.signOut();
-
-              const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                  redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?provider=google`,
-                  scopes:
-                    "email profile https://www.googleapis.com/auth/gmail.readonly",
-                  queryParams: {
-                    access_type: "offline",
-                    prompt: "consent select_account",
-                    response_type: "code",
-                  },
-                },
-              });
-
-              if (error) {
-                console.error("Auth error:", error);
-              } else if (data.url) {
-                window.location.href = data.url;
-              }
-            }}
-          >
-            Connect Gmail Account
-          </Button>
+          <GoogleAuth mode="login" />
         </div>
       </div>
     );
