@@ -31,7 +31,17 @@ export async function GET(request: Request) {
     const emailId = searchParams.get('emailId')
 
     if (!emailId) {
-      return NextResponse.json({ error: 'Email ID is required' }, { status: 400 })
+      const summaries = await prisma.emailSummary.findMany({
+        where: {
+          customer: {
+            auth_user_id: user.id
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+      return NextResponse.json(summaries)
     }
 
     const summary = await prisma.emailSummary.findFirst({

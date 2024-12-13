@@ -33,13 +33,14 @@ model EmailPrompt {
 }
 
 model EmailSummary {
-  id         String   @id @default(uuid())
-  emailId    String
-  summary    Json     @db.JsonB
-  customerId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  customer   Customer @relation(fields: [customerId], references: [id])
+  id                 String   @id @default(uuid())
+  emailId            String
+  summary            Json     @db.JsonB
+  checkedActionItems String[] @default([])
+  customerId         String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  customer           Customer @relation(fields: [customerId], references: [id])
 
   @@unique([emailId, customerId])
 }

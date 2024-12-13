@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,7 +16,6 @@ import {
 import { EmailViewModal } from "../../_components/EmailViewModal";
 import { Email, EmailThread } from "../../types";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CheckCircle, Link2 } from "lucide-react";
 
 interface EmailSummaryData {
   main_points: string[];
@@ -37,6 +36,7 @@ interface Summary {
   id: string;
   emailId: string;
   summary: EmailSummaryData;
+  checkedActionItems: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +67,7 @@ export default function SummaryPage() {
     email: Email;
     thread?: EmailThread;
   } | null>(null);
+  const [checkedItems, setCheckedItems] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,6 +107,7 @@ export default function SummaryPage() {
           const summaryData = await summaryResponse.json();
           setSummary(summaryData);
           setEditedSummary(summaryData?.summary || null);
+          setCheckedItems(summaryData?.checkedActionItems || []);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -217,6 +219,49 @@ export default function SummaryPage() {
     }
   };
 
+  const handleCheckItem = async (item: string) => {
+    try {
+      // Store the previous state for rollback
+      const previousItems = [...checkedItems];
+
+      // Optimistically update the UI
+      const newCheckedItems = checkedItems.includes(item)
+        ? checkedItems.filter((i) => i !== item)
+        : [...checkedItems, item];
+
+      setCheckedItems(newCheckedItems);
+
+      const response = await fetch("/api/email-summaries/checked-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailId,
+          checkedItems: newCheckedItems,
+        }),
+      });
+
+      if (!response.ok) {
+        // If the server request fails, revert to previous state
+        setCheckedItems(previousItems);
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update checked items");
+      }
+
+      // Update the summary state to reflect the new checkedItems
+      setSummary((prev) =>
+        prev
+          ? {
+              ...prev,
+              checkedActionItems: newCheckedItems,
+            }
+          : null
+      );
+    } catch (err) {
+      console.error("Failed to update checked items:", err);
+      // Error is already handled above with state reversion
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -247,7 +292,8 @@ export default function SummaryPage() {
               className="-mr-2"
               onClick={() => email && handleViewEmail(email)}
             >
-              View
+              <Mail className="w-4 h-4 mr-2" />
+              View Email/Thread
             </Button>
           </div>
           <div className="flex gap-2 text-sm text-muted-foreground">
@@ -398,9 +444,6 @@ export default function SummaryPage() {
                         >
                           {summary.summary.sentiment}
                         </Badge>
-                        <Badge variant="outline">
-                          {summary.summary.participants.length} participants
-                        </Badge>
                       </div>
                       <p className="text-muted-foreground">
                         {summary.summary.summary}
@@ -423,15 +466,17 @@ export default function SummaryPage() {
 
                   {summary.summary?.action_items?.length > 0 && (
                     <div>
-                      <h3 className="font-medium mb-2 flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        Action Items
-                      </h3>
+                      <h3 className="font-medium mb-2">Action Items</h3>
                       <ul className="space-y-1">
                         {summary.summary.action_items.map(
                           (item: string, i: number) => (
                             <li key={i} className="flex items-start gap-2">
-                              <input type="checkbox" className="mt-1" />
+                              <input
+                                type="checkbox"
+                                className="mt-1"
+                                checked={checkedItems.includes(item)}
+                                onChange={() => handleCheckItem(item)}
+                              />
                               <span>{item}</span>
                             </li>
                           )
@@ -443,10 +488,7 @@ export default function SummaryPage() {
                   {summary.summary?.key_dates &&
                     summary.summary.key_dates.length > 0 && (
                       <div>
-                        <h3 className="font-medium mb-2 flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Key Dates
-                        </h3>
+                        <h3 className="font-medium mb-2">Key Dates</h3>
                         <div className="space-y-2">
                           {summary.summary.key_dates.map((date, i) => (
                             <div key={i} className="flex items-center gap-2">
@@ -473,10 +515,7 @@ export default function SummaryPage() {
                   {summary.summary?.important_links &&
                     summary.summary.important_links.length > 0 && (
                       <div>
-                        <h3 className="font-medium mb-2 flex items-center gap-2">
-                          <Link2 className="h-4 w-4" />
-                          Important Links
-                        </h3>
+                        <h3 className="font-medium mb-2">Important Links</h3>
                         <ul className="space-y-1">
                           {summary.summary.important_links.map((link, i) => (
                             <li key={i}>

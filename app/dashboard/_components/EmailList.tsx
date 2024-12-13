@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Loader2, MoreVertical } from "lucide-react";
+import { Loader2, Mail, MoreVertical, Sparkles, Eye } from "lucide-react";
 import type { EmailPromptPayload } from "../actions";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
@@ -17,6 +17,11 @@ import { useRouter } from "next/navigation";
 import { EmailViewModal } from "./EmailViewModal";
 import { Email, EmailThread } from "../types";
 import GoogleAuth from "@/app/(auth)/_components/GoogleAuth";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface EmailListProps {
   onEmailSelect: (emailId: string) => void;
@@ -289,7 +294,10 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
           </div>
           <div className="flex-1 overflow-auto">
             {[...Array(5)].map((_, i) => (
-              <div key={`skeleton-${i}`} className="border-b p-4 animate-pulse">
+              <div
+                key={`skeleton-${i}`}
+                className="border-b p-3 sm:p-4 animate-pulse"
+              >
                 <div className="flex justify-between items-start gap-4">
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="h-4 bg-muted rounded w-3/4" />
@@ -297,7 +305,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                     <div className="h-3 bg-muted rounded w-full" />
                   </div>
                   <div className="flex gap-2">
-                    <div className="h-8 w-16 rounded-md bg-muted" />
+                    <div className="h-8 w-8 rounded-md bg-muted" />
                     <div className="h-8 w-8 rounded-md bg-muted" />
                   </div>
                 </div>
@@ -321,85 +329,86 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
   }
 
   return (
-    <div className="w-full bg-background">
+    <div className="w-full bg-background overflow-x-hidden">
       <div className="flex flex-col h-full">
-        <div className="border-b p-4 space-y-4">
-          <h2 className="font-semibold">Inbox</h2>
+        <div className="border-b p-3 sm:p-4 space-y-3 sm:space-y-4">
+          <h2 className="font-semibold text-sm sm:text-base">Inbox</h2>
           <div className="relative">
             <input
               type="search"
               placeholder="Search emails..."
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-1.5 sm:py-2 border rounded-md text-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           {emails.length > 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
               {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
               {totalEmails} emails
             </p>
           )}
         </div>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {emails.map((email) => (
             <div
               key={`email-${email.id}`}
-              className="border-b p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+              className="border-b p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors max-w-full"
               onClick={() => onEmailSelect(email.id)}
             >
-              <div className="flex justify-between items-start gap-4">
+              <div className="flex flex-col gap-3 max-w-full">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-medium truncate">
+                  <h3 className="font-medium truncate text-sm sm:text-base">
                     {getEmailSubject(email)}
                   </h3>
-                  <p className="text-sm text-muted-foreground truncate">
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
                     {getEmailFrom(email)}
                   </p>
-                  <p className="text-sm mt-1 line-clamp-2 text-muted-foreground/80">
+                  <p className="text-xs sm:text-sm mt-1 line-clamp-2 text-muted-foreground/80">
                     {email.snippet}
                   </p>
                 </div>
+
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewEmail(email);
-                    }}
-                  >
-                    View
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      asChild
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          processEmail(email.id, prompts[0]?.id);
+                        }}
+                        disabled={processingEmails[email.id] || !prompts.length}
+                      >
                         {processingEmails[email.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <MoreVertical className="h-4 w-4" />
+                          <Sparkles className="w-4 h-4" />
                         )}
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[200px]">
-                      {prompts.map((prompt) => (
-                        <DropdownMenuItem
-                          key={prompt.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            processEmail(email.id, prompt.id);
-                          }}
-                        >
-                          Process with {prompt.name}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </TooltipTrigger>
+                    <TooltipContent>Analyze Email</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewEmail(email);
+                        }}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View Email Thread</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </div>

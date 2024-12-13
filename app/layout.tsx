@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
@@ -18,9 +19,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${jetbrainsMono.className} antialiased`}>
-        {children}
+    <html lang="en" className="overflow-x-hidden">
+      <body
+        className={`${jetbrainsMono.className} antialiased overflow-x-hidden min-h-screen`}
+      >
+        <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
   );

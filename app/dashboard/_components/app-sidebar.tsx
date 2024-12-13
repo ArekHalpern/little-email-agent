@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Mail, Settings, User } from "lucide-react";
+import { LogOut, Mail, Settings, User, FileText } from "lucide-react";
 import {
   SidebarContent,
   SidebarFooter,
@@ -21,6 +21,11 @@ const items = [
     title: "Inbox",
     url: "/dashboard",
     icon: Mail,
+  },
+  {
+    title: "Summaries",
+    url: "/dashboard/summaries",
+    icon: FileText,
   },
   {
     title: "Profile",
