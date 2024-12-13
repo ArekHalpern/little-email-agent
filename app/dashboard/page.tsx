@@ -1,10 +1,10 @@
 import React from "react";
-import EmailList from "./_components/EmailList";
+import EmailListWrapper from "./_components/email-list-wrapper";
 
-export default function DashboardPage() {
+export default function DashboardPage(): React.JSX.Element {
   return (
-    <div className="p-8">
-      <EmailList />
+    <div className="flex h-[calc(100vh-4rem)]">
+      <EmailListWrapper />
     </div>
   );
 }

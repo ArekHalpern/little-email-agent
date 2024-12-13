@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { randomUUID } from 'crypto'
 
 const DEFAULT_TEMPLATES = [
   {
@@ -47,6 +48,7 @@ export async function createCustomer(data: {
     // Create the customer
     const customer = await tx.customer.create({
       data: {
+        id: randomUUID(),  // Generate UUID for customer
         auth_user_id: data.authUserId,
         email: data.email,
         name: data.name,
@@ -58,8 +60,10 @@ export async function createCustomer(data: {
       DEFAULT_TEMPLATES.map((template) =>
         tx.emailPrompt.create({
           data: {
+            id: randomUUID(),  // Generate UUID for each template
             ...template,
             customerId: customer.id,
+            updatedAt: new Date(),  // Set current timestamp
           },
         })
       )
@@ -67,4 +71,52 @@ export async function createCustomer(data: {
 
     return customer;
   });
+}
+
+export async function updateCustomerGoogleTokens(customerId: string, {
+  accessToken,
+  refreshToken,
+  expiryDate
+}: {
+  accessToken: string;
+  refreshToken?: string;
+  expiryDate?: Date;
+}) {
+  return await prisma.customer.update({
+    where: { id: customerId },
+    data: {
+      google_access_token: accessToken,
+      ...(refreshToken && { google_refresh_token: refreshToken }),
+      ...(expiryDate && { google_token_expiry: expiryDate })
+    }
+  });
+}
+
+export async function getCustomerGoogleTokens(customerId: string) {
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: {
+      google_access_token: true,
+      google_refresh_token: true,
+      google_token_expiry: true
+    }
+  });
+  return customer;
+}
+
+export async function getCustomerDetails(authUserId: string) {
+  const customer = await prisma.customer.findUnique({
+    where: { auth_user_id: authUserId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      google_access_token: true,
+      google_refresh_token: true,
+      google_token_expiry: true,
+      createdAt: true,
+      updatedAt: true,
+    }
+  });
+  return customer;
 }

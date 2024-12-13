@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { createCustomer } from '@/lib/db/actions'
 import { createClient } from '@/lib/auth/supabase/server'
+import { randomUUID } from 'crypto'
 
 async function ensureCustomer(userId: string) {
   const customer = await prisma.customer.findUnique({
@@ -57,8 +58,10 @@ export async function createEmailPrompt(userId: string, data: EmailPromptInput) 
 
   return prisma.emailPrompt.create({
     data: {
+      id: randomUUID(),
       ...data,
-      customerId: customer.id
+      customerId: customer.id,
+      updatedAt: new Date(),
     }
   })
 }
