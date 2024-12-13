@@ -7,7 +7,7 @@ export default function Footer() {
             href="https://twitter.com"
             className="text-gray-400 hover:text-gray-300"
           >
-            Twitter
+            X
           </a>
           <a
             href="https://github.com"

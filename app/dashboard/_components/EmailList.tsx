@@ -4,13 +4,6 @@ import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -20,35 +13,10 @@ import { Loader2, MoreVertical } from "lucide-react";
 import type { EmailPromptPayload } from "../actions";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
-import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { EmailViewModal } from "./EmailViewModal";
+import { Email, EmailThread } from "../types";
 import GoogleAuth from "@/app/(auth)/_components/GoogleAuth";
-
-interface Email {
-  id: string;
-  snippet: string;
-  threadId?: string;
-  internalDate?: string;
-  payload: {
-    headers: {
-      name: string;
-      value: string;
-    }[];
-    parts?: {
-      mimeType: string;
-      body: {
-        data?: string;
-      };
-    }[];
-    body?: {
-      data?: string;
-    };
-  };
-}
-
-interface EmailThread {
-  messages: Email[];
-}
 
 interface EmailListProps {
   onEmailSelect: (emailId: string) => void;
@@ -167,30 +135,6 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
       email.payload.headers.find((h) => h.name.toLowerCase() === "from")
         ?.value || "Unknown Sender"
     );
-  };
-
-  const decodeEmailBody = (email: Email) => {
-    const htmlPart = email.payload.parts?.find(
-      (part) => part.mimeType === "text/html"
-    );
-    const plainPart = email.payload.parts?.find(
-      (part) => part.mimeType === "text/plain"
-    );
-
-    const body =
-      htmlPart?.body?.data || plainPart?.body?.data || email.payload.body?.data;
-
-    if (!body) return "";
-
-    const decoded = decodeURIComponent(
-      escape(atob(body.replace(/-/g, "+").replace(/_/g, "/")))
-    );
-
-    if (!htmlPart && plainPart) {
-      return decoded.replace(/\n/g, "<br>");
-    }
-
-    return decoded;
   };
 
   const processEmail = async (emailId: string, promptId: string) => {
@@ -467,72 +411,12 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
         </div>
       </div>
 
-      <Dialog
-        open={!!selectedEmail}
-        onOpenChange={() => setSelectedEmail(null)}
-      >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <div className="sticky top-0 z-50 flex flex-col gap-1.5 bg-background pb-4">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedEmail && getEmailSubject(selectedEmail.email)}
-              </DialogTitle>
-              <DialogDescription>
-                {new Date(
-                  parseInt(selectedEmail?.email.internalDate || "0")
-                ).toLocaleString()}
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-
-          {selectedEmail?.thread ? (
-            <div className="space-y-6">
-              {selectedEmail.thread.messages.map((message, index) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "border-b pb-6",
-                    index === selectedEmail.thread!.messages.length - 1 &&
-                      "border-b-0"
-                  )}
-                >
-                  <div className="mb-2 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {
-                          message.payload?.headers.find(
-                            (h) => h.name.toLowerCase() === "from"
-                          )?.value
-                        }
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(
-                          parseInt(message.internalDate || "0")
-                        ).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className="prose prose-sm max-w-none dark:prose-invert email-content"
-                    dangerouslySetInnerHTML={{
-                      __html: decodeEmailBody(message),
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            selectedEmail && (
-              <div
-                className="prose prose-sm max-w-none dark:prose-invert email-content"
-                dangerouslySetInnerHTML={{
-                  __html: decodeEmailBody(selectedEmail.email),
-                }}
-              />
-            )
-          )}
-        </DialogContent>
-      </Dialog>
+      <EmailViewModal
+        isOpen={!!selectedEmail}
+        onClose={() => setSelectedEmail(null)}
+        email={selectedEmail?.email || null}
+        thread={selectedEmail?.thread}
+      />
     </div>
   );
 }

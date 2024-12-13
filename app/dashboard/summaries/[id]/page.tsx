@@ -7,49 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-
-interface EmailHeader {
-  name: string;
-  value: string;
-}
-
-interface Email {
-  id: string;
-  subject: string;
-  from: string;
-  snippet: string;
-  threadId?: string;
-  internalDate?: string;
-  payload?: {
-    headers: EmailHeader[];
-    parts?: {
-      mimeType: string;
-      body: {
-        data?: string;
-      };
-    }[];
-    body?: {
-      data?: string;
-    };
-  };
-}
-
-interface EmailThread {
-  messages: Email[];
-}
+import { EmailViewModal } from "../../_components/EmailViewModal";
+import { Email, EmailThread } from "../../types";
 
 interface Summary {
   id: string;
@@ -95,15 +60,17 @@ export default function SummaryPage() {
         if (!emailResponse.ok) throw new Error("Failed to fetch email");
         const emailData = await emailResponse.json();
 
-        const emailDetails = {
+        const emailDetails: Email = {
           id: emailData.email.id,
           subject:
             emailData.email.payload.headers.find(
-              (h: EmailHeader) => h.name.toLowerCase() === "subject"
+              (h: { name: string; value: string }) =>
+                h.name.toLowerCase() === "subject"
             )?.value || "No Subject",
           from:
             emailData.email.payload.headers.find(
-              (h: EmailHeader) => h.name.toLowerCase() === "from"
+              (h: { name: string; value: string }) =>
+                h.name.toLowerCase() === "from"
             )?.value || "Unknown Sender",
           snippet: emailData.email.snippet,
           threadId: emailData.email.threadId,
@@ -130,51 +97,6 @@ export default function SummaryPage() {
 
     fetchData();
   }, [emailId]);
-
-  const handleViewEmail = async (email: Email) => {
-    setSelectedEmail({ email });
-
-    // Fetch thread if it exists
-    if (email.threadId) {
-      try {
-        const response = await fetch(`/api/gmail/messages/${email.threadId}`);
-        if (!response.ok) throw new Error("Failed to fetch thread");
-        const data = await response.json();
-        setSelectedEmail((prev) => ({
-          ...prev!,
-          thread: data.thread,
-        }));
-      } catch (error) {
-        console.error("Error fetching thread:", error);
-      }
-    }
-  };
-
-  const decodeEmailBody = (email: Email) => {
-    const htmlPart = email.payload?.parts?.find(
-      (part) => part.mimeType === "text/html"
-    );
-    const plainPart = email.payload?.parts?.find(
-      (part) => part.mimeType === "text/plain"
-    );
-
-    const body =
-      htmlPart?.body?.data ||
-      plainPart?.body?.data ||
-      email.payload?.body?.data;
-
-    if (!body) return "";
-
-    const decoded = decodeURIComponent(
-      escape(atob(body.replace(/-/g, "+").replace(/_/g, "/")))
-    );
-
-    if (!htmlPart && plainPart) {
-      return decoded.replace(/\n/g, "<br>");
-    }
-
-    return decoded;
-  };
 
   useEffect(() => {
     const fetchPrompts = async () => {
@@ -247,6 +169,25 @@ export default function SummaryPage() {
       setIsGenerating(false);
     }
   }, [selectedPromptId, email?.snippet, handleSaveSummary]);
+
+  const handleViewEmail = async (email: Email) => {
+    setSelectedEmail({ email });
+
+    // Fetch thread if it exists
+    if (email.threadId) {
+      try {
+        const response = await fetch(`/api/gmail/messages/${email.threadId}`);
+        if (!response.ok) throw new Error("Failed to fetch thread");
+        const data = await response.json();
+        setSelectedEmail((prev) => ({
+          ...prev!,
+          thread: data.thread,
+        }));
+      } catch (error) {
+        console.error("Error fetching thread:", error);
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -352,65 +293,12 @@ export default function SummaryPage() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={!!selectedEmail}
-        onOpenChange={() => setSelectedEmail(null)}
-      >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <div className="sticky top-0 z-50 flex flex-col gap-1.5 bg-background pb-4">
-            <DialogHeader>
-              <DialogTitle>{selectedEmail && email?.subject}</DialogTitle>
-            </DialogHeader>
-          </div>
-
-          {selectedEmail?.thread ? (
-            <div className="space-y-6">
-              {selectedEmail.thread.messages.map((message, index) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "border-b pb-6",
-                    index === selectedEmail.thread!.messages.length - 1 &&
-                      "border-b-0"
-                  )}
-                >
-                  <div className="mb-2 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium">
-                        {
-                          message.payload?.headers.find(
-                            (h) => h.name.toLowerCase() === "from"
-                          )?.value
-                        }
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(
-                          parseInt(message.internalDate || "0")
-                        ).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className="prose prose-sm max-w-none dark:prose-invert email-content"
-                    dangerouslySetInnerHTML={{
-                      __html: decodeEmailBody(message),
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            selectedEmail && (
-              <div
-                className="prose prose-sm max-w-none dark:prose-invert email-content"
-                dangerouslySetInnerHTML={{
-                  __html: decodeEmailBody(selectedEmail.email),
-                }}
-              />
-            )
-          )}
-        </DialogContent>
-      </Dialog>
+      <EmailViewModal
+        isOpen={!!selectedEmail}
+        onClose={() => setSelectedEmail(null)}
+        email={selectedEmail?.email || null}
+        thread={selectedEmail?.thread}
+      />
     </div>
   );
 }
