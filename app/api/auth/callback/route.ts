@@ -6,9 +6,8 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') || '/dashboard'
-  const provider = requestUrl.searchParams.get('provider')
-
-  console.log('Auth callback received:', { code, next, provider, url: request.url })
+  
+  console.log('Auth callback received:', { code, next, url: request.url })
 
   if (code) {
     const supabase = createClient()
@@ -58,6 +57,6 @@ export async function GET(request: Request) {
   }
 
   // If we get here, something went wrong
-  console.error('Auth failed:', { code, provider })
+  console.error('Auth failed:', { code })
   return NextResponse.redirect(`${requestUrl.origin}/error`)
 } 
