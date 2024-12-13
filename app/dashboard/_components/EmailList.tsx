@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, MailOpen } from "lucide-react";
+import { Sparkles, MailOpen } from "lucide-react";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -165,12 +165,42 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     currentPage,
     totalEmails,
     onPageChange,
+    isMobile,
   }: {
     currentPage: number;
     totalEmails: number;
     onPageChange: (page: number) => void;
+    isMobile?: boolean;
   }) {
     const totalPages = Math.ceil(totalEmails / EMAILS_PER_PAGE);
+
+    if (isMobile) {
+      return (
+        <div className="flex justify-between items-center p-3 gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="w-[100px]"
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="w-[100px]"
+          >
+            Next
+          </Button>
+        </div>
+      );
+    }
 
     // Show max 5 pages at a time
     let startPage = Math.max(1, currentPage - 2);
@@ -187,13 +217,12 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     );
 
     return (
-      <div className="flex justify-center items-center gap-1 p-4 border-t">
+      <div className="flex justify-center items-center gap-1 p-4">
         <Button
           variant="outline"
           size="sm"
           onClick={() => onPageChange(1)}
           disabled={currentPage === 1}
-          className="hidden sm:inline-flex"
         >
           First
         </Button>
@@ -207,7 +236,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
           Previous
         </Button>
 
-        <div className="flex gap-1 overflow-auto px-1 max-w-[200px] sm:max-w-none">
+        <div className="flex gap-1 overflow-auto px-1">
           {startPage > 1 && <div className="flex items-center px-2">...</div>}
 
           {pages.map((page) => (
@@ -241,45 +270,8 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
           size="sm"
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
-          className="hidden sm:inline-flex"
         >
           Last
-        </Button>
-      </div>
-    );
-  }
-
-  function LoadMoreButton({
-    currentPage,
-    totalEmails,
-    onLoadMore,
-    loading,
-  }: {
-    currentPage: number;
-    totalEmails: number;
-    onLoadMore: () => void;
-    loading?: boolean;
-  }) {
-    const hasMore = currentPage * EMAILS_PER_PAGE < totalEmails;
-
-    if (!hasMore) return null;
-
-    return (
-      <div className="p-4 flex justify-center">
-        <Button
-          variant="outline"
-          onClick={onLoadMore}
-          disabled={loading}
-          className="w-full sm:w-auto"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Loading...
-            </>
-          ) : (
-            "Load More"
-          )}
         </Button>
       </div>
     );
@@ -329,105 +321,103 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
   }
 
   return (
-    <div className="w-full bg-background overflow-x-hidden h-full">
-      <div className="flex flex-col h-full">
-        <div className="border-b p-3 sm:p-4 space-y-3 sm:space-y-4">
-          <h2 className="font-semibold text-sm sm:text-base">Inbox</h2>
-          <div className="relative">
-            <input
-              type="search"
-              placeholder="Search emails..."
-              className="w-full px-3 py-1.5 sm:py-2 border rounded-md text-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          {totalEmails > 0 && (
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
-              {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
-              {totalEmails} emails
-            </p>
-          )}
+    <div className="w-full bg-background overflow-x-hidden h-full flex flex-col">
+      <div className="border-b p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <h2 className="font-semibold text-sm sm:text-base">Inbox</h2>
+        <div className="relative">
+          <input
+            type="search"
+            placeholder="Search emails..."
+            className="w-full px-3 py-1.5 sm:py-2 border rounded-md text-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          {emails.map((email: Email) => (
-            <div
-              key={`email-${email.id}`}
-              className="border-b p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors max-w-full"
-              onClick={() => onEmailSelect(email.id)}
-            >
-              <div className="flex flex-col gap-3 max-w-full">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap justify-between items-start gap-2 mb-1">
-                    <h3 className="font-medium text-sm sm:text-base break-words min-w-0 flex-1">
-                      {getEmailSubject(email)}
-                    </h3>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              processEmail(email.id);
-                            }}
-                          >
-                            <Sparkles className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Analyze Email</TooltipContent>
-                      </Tooltip>
+        {totalEmails > 0 && (
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
+            {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
+            {totalEmails} emails
+          </p>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        {emails.map((email: Email) => (
+          <div
+            key={`email-${email.id}`}
+            className="border-b p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors max-w-full"
+            onClick={() => onEmailSelect(email.id)}
+          >
+            <div className="flex flex-col gap-3 max-w-full">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap justify-between items-start gap-2 mb-1">
+                  <h3 className="font-medium text-sm sm:text-base break-words min-w-0 flex-1">
+                    {getEmailSubject(email)}
+                  </h3>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            processEmail(email.id);
+                          }}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Analyze Email</TooltipContent>
+                    </Tooltip>
 
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleViewEmail(email)}
-                            className="h-8 w-8"
-                          >
-                            <MailOpen className="h-4 w-4" />
-                            <span className="sr-only">View email</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>View Email</TooltipContent>
-                      </Tooltip>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewEmail(email)}
+                          className="h-8 w-8"
+                        >
+                          <MailOpen className="h-4 w-4" />
+                          <span className="sr-only">View email</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>View Email</TooltipContent>
+                    </Tooltip>
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                    {getEmailFrom(email)}
-                  </p>
-                  <p className="text-xs sm:text-sm mt-1 text-muted-foreground/80 break-words">
-                    {email.snippet}
-                  </p>
                 </div>
+                <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                  {getEmailFrom(email)}
+                </p>
+                <p className="text-xs sm:text-sm mt-1 text-muted-foreground/80 break-words">
+                  {email.snippet}
+                </p>
               </div>
             </div>
-          ))}
-          {totalEmails > 0 && (
-            <>
-              <div className="hidden sm:block">
-                <Pagination
-                  currentPage={currentPage}
-                  totalEmails={totalEmails}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-              <div className="sm:hidden">
-                <LoadMoreButton
-                  currentPage={currentPage}
-                  totalEmails={totalEmails}
-                  onLoadMore={() => handlePageChange(currentPage + 1)}
-                  loading={loading}
-                />
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        ))}
       </div>
+      {totalEmails > 0 && (
+        <div className="sticky bottom-0 left-0 right-0 bg-background border-t pb-[env(safe-area-inset-bottom)]">
+          <div className="hidden sm:block">
+            <Pagination
+              currentPage={currentPage}
+              totalEmails={totalEmails}
+              onPageChange={handlePageChange}
+            />
+          </div>
+          <div className="sm:hidden">
+            <Pagination
+              currentPage={currentPage}
+              totalEmails={totalEmails}
+              onPageChange={handlePageChange}
+              isMobile={true}
+            />
+          </div>
+        </div>
+      )}
 
       <EmailViewModal
         isOpen={!!selectedEmail}
