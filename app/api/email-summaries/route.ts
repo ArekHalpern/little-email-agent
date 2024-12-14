@@ -13,7 +13,6 @@ const EmailSummarySchema = z.object({
   sentiment: z.enum(['positive', 'neutral', 'negative']),
   summary: z.string(),
   participants: z.array(z.string()),
-  next_steps: z.array(z.string()),
   important_links: z.array(z.string()).optional(),
   attachments_summary: z.array(z.string()).optional()
 })

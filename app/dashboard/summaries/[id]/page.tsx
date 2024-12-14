@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, Pencil } from "lucide-react";
+import { Loader2, Mail, Pencil, ArrowLeft } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -48,6 +48,7 @@ interface EmailPrompt {
 
 export default function SummaryPage() {
   const params = useParams();
+  const router = useRouter();
   const emailId = params.id as string;
 
   const [email, setEmail] = useState<Email | null>(null);
@@ -278,17 +279,26 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="container mx-auto p-2 sm:p-4 space-y-4 max-w-4xl">
+    <div className="container mx-auto px-2 py-3 sm:p-4 space-y-3 sm:space-y-4 max-w-4xl">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => router.push("/dashboard/summaries")}
+        className="mb-1 sm:mb-2 h-10 sm:h-9 w-full sm:w-auto justify-start"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Summaries
+      </Button>
+
       <Card className="shadow-sm">
         <CardContent className="p-3 sm:p-4 space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+          <div className="flex flex-col gap-2 sm:gap-4">
             <div className="space-y-1 min-w-0">
-              <h2 className="text-base sm:text-lg font-medium leading-none break-words">
+              <h2 className="text-base sm:text-lg font-medium leading-tight break-words">
                 {email?.subject}
               </h2>
-              <div className="flex flex-col sm:flex-row gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex flex-col gap-1 text-xs sm:text-sm text-muted-foreground">
                 <span className="truncate">{email?.from}</span>
-                <span className="hidden sm:inline">·</span>
                 <span className="truncate">
                   {email?.internalDate
                     ? new Date(parseInt(email.internalDate)).toLocaleString()
@@ -298,11 +308,11 @@ export default function SummaryPage() {
             </div>
             <Button
               variant="ghost"
-              size="sm"
+              size="lg"
               onClick={() => email && handleViewEmail(email)}
-              className="shrink-0 w-full sm:w-auto"
+              className="w-full h-12 sm:h-10"
             >
-              <Mail className="w-4 h-4 mr-2" />
+              <Mail className="w-5 h-5 mr-2" />
               View Email
             </Button>
           </div>
@@ -310,18 +320,18 @@ export default function SummaryPage() {
       </Card>
 
       <Card className="shadow-sm">
-        <CardHeader className="space-y-4 p-3 sm:p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <CardHeader className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="flex flex-col gap-2">
               <CardTitle className="text-base sm:text-lg">
                 Email Analysis
               </CardTitle>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <div className="flex flex-col gap-2 w-full">
                 <Select
                   value={selectedPromptId}
                   onValueChange={setSelectedPromptId}
                 >
-                  <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectTrigger className="w-full h-12 sm:h-10">
                     <SelectValue placeholder="Select template" />
                   </SelectTrigger>
                   <SelectContent>
@@ -335,7 +345,7 @@ export default function SummaryPage() {
                 <Button
                   onClick={generateSummary}
                   disabled={isGenerating || !selectedPromptId}
-                  className="w-full sm:w-auto"
+                  className="w-full h-12 sm:h-10"
                 >
                   {isGenerating ? "Generating..." : "Generate"}
                 </Button>
@@ -357,7 +367,7 @@ export default function SummaryPage() {
                       prev ? { ...prev, summary: e.target.value } : null
                     )
                   }
-                  className="min-h-[100px] text-sm"
+                  className="min-h-[120px] text-base leading-normal"
                   placeholder="Enter summary..."
                 />
               </div>
@@ -379,7 +389,7 @@ export default function SummaryPage() {
                         : null
                     )
                   }
-                  className="min-h-[100px] text-sm"
+                  className="min-h-[120px] text-base leading-normal"
                   placeholder="Enter main points (one per line)..."
                 />
               </div>
@@ -401,15 +411,15 @@ export default function SummaryPage() {
                         : null
                     )
                   }
-                  className="min-h-[100px] text-sm"
+                  className="min-h-[120px] text-base leading-normal"
                   placeholder="Enter action items and next steps (one per line)..."
                 />
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col gap-2">
                 <Button
                   onClick={handleSaveSummary}
                   disabled={isSaving}
-                  className="w-full sm:w-auto"
+                  className="w-full h-12 sm:h-10"
                 >
                   {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
@@ -419,32 +429,32 @@ export default function SummaryPage() {
                     setEditedSummary(summary?.summary || null);
                     setIsEditing(false);
                   }}
-                  className="w-full sm:w-auto"
+                  className="w-full h-12 sm:h-10"
                 >
                   Cancel
                 </Button>
               </div>
             </div>
           ) : summary ? (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="space-y-5 sm:space-y-6">
+              <div className="flex flex-col gap-3 sm:gap-2">
                 <h3 className="font-medium text-sm sm:text-base">
                   Generated Summary
                 </h3>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="lg"
                   onClick={() => setIsEditing(true)}
-                  className="w-full sm:w-auto"
+                  className="w-full h-12 sm:h-10"
                 >
-                  <Pencil className="h-4 w-4 mr-2" />
+                  <Pencil className="h-5 w-5 mr-2" />
                   Edit Summary
                 </Button>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-5 sm:space-y-6">
                 {summary.summary && (
                   <div>
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
                       <Badge
                         variant={
                           summary.summary.sentiment === "positive"
@@ -453,11 +463,12 @@ export default function SummaryPage() {
                             ? "destructive"
                             : "secondary"
                         }
+                        className="text-sm px-3 py-1"
                       >
                         {summary.summary.sentiment}
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground text-sm sm:text-base">
+                    <p className="text-muted-foreground text-base leading-relaxed">
                       {summary.summary.summary}
                     </p>
                   </div>
@@ -465,10 +476,10 @@ export default function SummaryPage() {
 
                 {summary.summary?.main_points?.length > 0 && (
                   <div>
-                    <h3 className="font-medium mb-2 text-sm sm:text-base">
+                    <h3 className="font-medium mb-3 text-sm sm:text-base">
                       Main Points
                     </h3>
-                    <ul className="list-disc pl-4 space-y-1 text-sm sm:text-base">
+                    <ul className="list-disc pl-5 space-y-2 text-base leading-relaxed">
                       {summary.summary.main_points.map(
                         (point: string, i: number) => (
                           <li key={i}>{point}</li>
@@ -480,23 +491,23 @@ export default function SummaryPage() {
 
                 {summary.summary?.action_items?.length > 0 && (
                   <div>
-                    <h3 className="font-medium mb-2 text-sm sm:text-base">
+                    <h3 className="font-medium mb-3 text-sm sm:text-base">
                       Action Items
                     </h3>
-                    <ul className="space-y-1">
+                    <ul className="space-y-3">
                       {summary.summary.action_items.map(
                         (item: string, i: number) => (
                           <li
                             key={i}
-                            className="flex items-start gap-2 text-sm sm:text-base"
+                            className="flex items-start gap-3 text-base leading-relaxed"
                           >
                             <input
                               type="checkbox"
-                              className="mt-1"
+                              className="mt-1.5 h-5 w-5"
                               checked={checkedItems.includes(item)}
                               onChange={() => handleCheckItem(item)}
                             />
-                            <span>{item}</span>
+                            <span className="flex-1">{item}</span>
                           </li>
                         )
                       )}
@@ -507,16 +518,21 @@ export default function SummaryPage() {
                 {summary.summary?.key_dates &&
                   summary.summary.key_dates.length > 0 && (
                     <div>
-                      <h3 className="font-medium mb-2 text-sm sm:text-base">
+                      <h3 className="font-medium mb-3 text-sm sm:text-base">
                         Key Dates
                       </h3>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {summary.summary.key_dates.map((date, i) => (
                           <div
                             key={i}
-                            className="flex flex-wrap items-center gap-2 text-sm sm:text-base"
+                            className="flex flex-col gap-1 text-base leading-relaxed"
                           >
-                            <Badge variant="outline">{date.date}</Badge>
+                            <Badge
+                              variant="outline"
+                              className="w-fit px-3 py-1"
+                            >
+                              {date.date}
+                            </Badge>
                             <span>{date.description}</span>
                           </div>
                         ))}
@@ -527,15 +543,15 @@ export default function SummaryPage() {
                 {summary.summary?.important_links &&
                   summary.summary.important_links.length > 0 && (
                     <div>
-                      <h3 className="font-medium mb-2 text-sm sm:text-base">
+                      <h3 className="font-medium mb-3 text-sm sm:text-base">
                         Important Links
                       </h3>
-                      <ul className="space-y-1">
+                      <ul className="space-y-3">
                         {summary.summary.important_links.map((link, i) => (
                           <li key={i} className="break-all">
                             <a
                               href={link}
-                              className="text-blue-500 hover:underline inline-block max-w-full text-sm sm:text-base"
+                              className="text-blue-500 hover:underline inline-block max-w-full text-base leading-relaxed"
                               target="_blank"
                               rel="noopener noreferrer"
                             >
@@ -549,7 +565,7 @@ export default function SummaryPage() {
               </div>
             </div>
           ) : (
-            <div className="text-center text-muted-foreground py-8 text-sm sm:text-base">
+            <div className="text-center text-muted-foreground py-8 text-base">
               Select a template and click Generate to analyze this email
             </div>
           )}

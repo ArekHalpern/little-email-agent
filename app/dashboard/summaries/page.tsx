@@ -16,7 +16,6 @@ interface EmailSummaryData {
   sentiment: "positive" | "neutral" | "negative";
   summary: string;
   participants: string[];
-  next_steps: string[];
   important_links?: string[];
   attachments_summary?: string[];
 }
