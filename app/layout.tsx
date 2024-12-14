@@ -19,9 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="overflow-x-hidden">
+    <html lang="en" className="h-full">
       <body
-        className={`${jetbrainsMono.className} antialiased overflow-x-hidden min-h-screen`}
+        className={`${jetbrainsMono.className} antialiased min-h-screen flex flex-col`}
       >
         <TooltipProvider>{children}</TooltipProvider>
       </body>
