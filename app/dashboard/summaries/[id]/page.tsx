@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, Pencil, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, Pencil, ArrowLeft, MessageSquare } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,6 +16,7 @@ import {
 import { EmailViewModal } from "../../_components/EmailViewModal";
 import { Email, EmailThread } from "../../types";
 import { Badge } from "@/components/ui/badge";
+import { ChatModal } from "../../_components/ChatModal";
 
 interface EmailSummaryData {
   main_points: string[];
@@ -68,6 +69,7 @@ export default function SummaryPage() {
     thread?: EmailThread;
   } | null>(null);
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -259,6 +261,26 @@ export default function SummaryPage() {
     } catch (err) {
       console.error("Failed to update checked items:", err);
       // Error is already handled above with state reversion
+    }
+  };
+
+  const handleStartChat = async () => {
+    if (!email?.id) return;
+
+    try {
+      // Generate embedding for the email content
+      await fetch("/api/email-embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailId: email.id,
+          content: email.snippet || "",
+        }),
+      });
+
+      setIsChatOpen(true);
+    } catch (error) {
+      console.error("Failed to start chat:", error);
     }
   };
 
@@ -578,6 +600,24 @@ export default function SummaryPage() {
         email={selectedEmail?.email || null}
         thread={selectedEmail?.thread}
       />
+
+      <Button
+        variant="outline"
+        size="lg"
+        onClick={handleStartChat}
+        className="w-full h-12 sm:h-10"
+      >
+        <MessageSquare className="h-5 w-5 mr-2" />
+        Chat with Email
+      </Button>
+
+      {isChatOpen && email?.id && (
+        <ChatModal
+          emailId={email.id}
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+        />
+      )}
     </div>
   );
 }
