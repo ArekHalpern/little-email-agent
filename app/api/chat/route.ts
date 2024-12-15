@@ -1,16 +1,20 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { createClient as createServerClient } from '@/lib/auth/supabase/server';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+type EmbeddingArray = number[];
 
-// Add type for the vector query result
-interface VectorQueryResult {
-  content: string;
-  distance: number;
+async function findSimilarEmails(embedding: EmbeddingArray, customerId: string, limit = 3) {
+  // Using Prisma to find similar emails
+  // Note: This is a basic implementation. For production, 
+  // consider using a vector database like Pinecone or Supabase's vector capabilities
+  const similarEmails = await prisma.emailEmbedding.findMany({
+    where: { customerId },
+    select: { content: true },
+    take: limit,
+  });
+  
+  return similarEmails.map(email => email.content);
 }
 
 export async function POST(req: Request) {
@@ -22,54 +26,87 @@ export async function POST(req: Request) {
     const customerId = session.user.id;
     const { emailId, message } = await req.json();
 
-    // Store user message
+    // Retrieve the email embedding
+    const emailEmbedding = await prisma.emailEmbedding.findUnique({
+      where: { emailId },
+    });
+
+    if (!emailEmbedding) {
+      throw new Error('Email embedding not found');
+    }
+
+    // Extract the embedding and content, cast the embedding to number[]
+    const { embedding: rawEmbedding, content: emailContent } = emailEmbedding;
+    const embedding = rawEmbedding as EmbeddingArray;
+
+    // Find similar emails using the embedding
+    const similarEmails = await findSimilarEmails(embedding, customerId);
+
+    // Enhanced system prompt with similar emails context
+    const systemPrompt = `
+      You are an AI assistant helping the user with questions about the following email:
+
+      "${emailContent}"
+
+      Additional context from similar emails:
+      ${similarEmails.map((content, i) => `\nRelated Email ${i + 1}:\n${content}`).join('\n')}
+
+      When responding, reference the email content and provide clear, concise answers.
+      If relevant, you may reference information from the related emails as additional context.
+    `;
+
+    // Fetch previous chat messages
+    const previousMessages = await prisma.chatMessage.findMany({
+      where: { emailId, customerId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Map messages to OpenAI format
+    const chatHistory = previousMessages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    // Prepare the messages array for OpenAI
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...chatHistory,
+      { role: 'user', content: message },
+    ];
+
+    // Call the OpenAI API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4', // Or another suitable model
+        messages,
+        temperature: 0.7, // Adjust as needed
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get AI response');
+    }
+
+    const aiResponse = await response.json();
+
+    // Store AI response
+    const assistantMessage = aiResponse.choices[0].message.content;
+
     await prisma.chatMessage.create({
       data: {
         emailId,
-        content: message,
-        role: 'user',
-        customerId,
-      },
-    });
-
-    // Get relevant context using embeddings
-    const { data: embedding } = await supabase.functions.invoke('embed', {
-      body: { text: message },
-    });
-
-    const relevantContext = await prisma.$queryRaw<VectorQueryResult[]>`
-      SELECT content, embedding <-> ${embedding}::vector as distance
-      FROM "EmailEmbedding"
-      WHERE "customerId" = ${customerId}
-      ORDER BY distance
-      LIMIT 1
-    `;
-
-    if (!relevantContext.length) {
-      throw new Error('No relevant context found');
-    }
-
-    // Generate AI response using context
-    const aiResponse = await supabase.functions.invoke('chat', {
-      body: {
-        messages: [
-          { role: 'system', content: `Context: ${relevantContext[0].content}` },
-          { role: 'user', content: message },
-        ],
-      },
-    });
-
-    // Store AI response
-    const chatMessage = await prisma.chatMessage.create({
-      data: {
-        emailId,
-        content: aiResponse.data,
+        content: assistantMessage,
         role: 'assistant',
         customerId,
       },
     });
 
-    return NextResponse.json(chatMessage);
+    return NextResponse.json({ content: assistantMessage });
   } catch (error) {
     console.error('Chat error:', error);
     return NextResponse.json({ error: 'Failed to process chat' }, { status: 500 });

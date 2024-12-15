@@ -1,12 +1,8 @@
-import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+import { useChat, Message } from "ai/react";
+import { useEffect } from "react";
 
 export function ChatModal({
   emailId,
@@ -17,41 +13,25 @@ export function ChatModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat({
+      api: "/api/openai/chat",
+      body: {
+        emailId,
+      },
+    });
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-
-    try {
-      setIsLoading(true);
-      setMessages((prev) => [...prev, { role: "user", content: input }]);
-
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailId, message: input }),
-      });
-
-      const data = await response.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.content },
-      ]);
-      setInput("");
-    } catch (error) {
-      console.error("Chat error:", error);
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (isOpen) {
+      // Fetch chat history from your API
     }
-  };
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <div className="flex flex-col h-[600px] p-4">
         <div className="flex-1 overflow-y-auto space-y-4">
-          {messages.map((message, i) => (
+          {messages.map((message: Message, i: number) => (
             <div
               key={i}
               className={`flex ${
@@ -70,18 +50,17 @@ export function ChatModal({
             </div>
           ))}
         </div>
-        <div className="flex gap-2 mt-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 mt-4">
           <Input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSend()}
+            onChange={handleInputChange}
             placeholder="Type your message..."
             disabled={isLoading}
           />
-          <Button onClick={handleSend} disabled={isLoading}>
+          <Button type="submit" disabled={isLoading}>
             Send
           </Button>
-        </div>
+        </form>
       </div>
     </Dialog>
   );
