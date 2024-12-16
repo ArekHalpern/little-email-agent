@@ -2,7 +2,7 @@ import { EmailReplyComposer } from "./EmailReplyComposer";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EmailSummaryData, Summary } from "../types";
+import { Summary } from "../types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
@@ -19,6 +19,7 @@ interface EmailRightPanelProps {
   wordCount: number;
   onAnalyze: (endpoint: "openai" | "anthropic") => void;
   onCheckItem?: (item: string) => void;
+  onEmailSent?: () => void;
 }
 
 export function EmailRightPanel({
@@ -30,6 +31,7 @@ export function EmailRightPanel({
   wordCount,
   onAnalyze,
   onCheckItem,
+  onEmailSent,
 }: EmailRightPanelProps) {
   return (
     <div className={cn("w-[380px] flex-shrink-0 border-l", className)}>
@@ -47,6 +49,7 @@ export function EmailRightPanel({
             inThread={true}
             threadId={threadId}
             className="border-none shadow-none rounded-none h-full"
+            onSent={onEmailSent}
           />
         </TabsContent>
 

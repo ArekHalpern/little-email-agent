@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -23,6 +23,7 @@ export default function EmailViewPage() {
   const [wordCount, setWordCount] = useState<number>(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [shouldRefresh, setShouldRefresh] = useState(false);
 
   useEffect(() => {
     const fetchThread = async () => {
@@ -48,6 +49,26 @@ export default function EmailViewPage() {
 
     fetchThread();
   }, [emailId]);
+
+  // Add useEffect for refreshing thread
+  useEffect(() => {
+    if (shouldRefresh) {
+      const refreshThread = async () => {
+        try {
+          const response = await fetch(`/api/gmail/messages/${emailId}/thread`);
+          if (!response.ok) throw new Error("Failed to fetch thread");
+          const data = await response.json();
+          setThread(data.thread);
+        } catch (error) {
+          console.error("Error refreshing thread:", error);
+        } finally {
+          setShouldRefresh(false);
+        }
+      };
+
+      refreshThread();
+    }
+  }, [shouldRefresh, emailId]);
 
   const handleAnalyze = async (endpoint: "openai" | "anthropic") => {
     if (!currentEmail || !thread.length) return;
@@ -185,6 +206,10 @@ export default function EmailViewPage() {
     }
   };
 
+  const handleEmailSent = useCallback(() => {
+    setShouldRefresh(true);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -224,6 +249,7 @@ export default function EmailViewPage() {
         wordCount={wordCount}
         onAnalyze={handleAnalyze}
         onCheckItem={handleCheckItem}
+        onEmailSent={handleEmailSent}
       />
     </div>
   );

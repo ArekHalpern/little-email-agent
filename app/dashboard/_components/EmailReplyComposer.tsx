@@ -16,6 +16,7 @@ interface EmailReplyComposerProps {
   inThread?: boolean;
   className?: string;
   threadId?: string;
+  onSent?: () => void;
 }
 
 export function EmailReplyComposer({
@@ -23,6 +24,7 @@ export function EmailReplyComposer({
   inThread,
   className,
   threadId,
+  onSent,
 }: EmailReplyComposerProps) {
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
@@ -94,6 +96,10 @@ export function EmailReplyComposer({
         title: "Email sent",
         description: "Your reply has been sent successfully",
       });
+
+      editor.commands.clearContent();
+
+      onSent?.();
       onClose();
     } catch (error) {
       console.error("Error sending reply:", error);
