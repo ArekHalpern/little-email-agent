@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@/lib/auth/supabase/server";
+import { prisma } from "@/lib/db/prisma";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,7 +18,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const prompt = `Generate a professional email reply based on the following summary and details:
+    // Get user's email from customer record
+    const customer = await prisma.customer.findUnique({
+      where: { auth_user_id: user.id },
+      select: { email: true }
+    });
+
+    if (!customer?.email) {
+      return NextResponse.json({ error: "User email not found" }, { status: 400 });
+    }
+
+    const prompt = `You are replying as ${customer.email}. Generate a professional email reply based on the following summary and details:
 
 Summary: ${summary.summary}
 
@@ -36,14 +47,16 @@ Please generate a concise, professional reply that:
 4. Maintains a professional but friendly tone
 5. Ends with a clear next step or call to action
 
-Reply in HTML format with appropriate paragraphs.`;
+Format the response as email content with paragraphs using <p> tags, but do not include <html>, <body>, or other document-level tags. 
+Use appropriate line breaks and spacing.
+Sign off with a professional closing that matches the tone of the email.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4-turbo-preview",
       messages: [
         {
           role: "system",
-          content: "You are an AI assistant that helps write professional email replies.",
+          content: "You are an AI assistant that helps write professional email replies. Format responses with simple HTML paragraph tags (<p>) for structure, but avoid any document-level HTML tags.",
         },
         {
           role: "user",
@@ -53,11 +66,19 @@ Reply in HTML format with appropriate paragraphs.`;
       temperature: 0.7,
     });
 
-    const reply = completion.choices[0]?.message?.content;
+    let reply = completion.choices[0]?.message?.content;
 
     if (!reply) {
       throw new Error("No reply generated");
     }
+
+    // Clean up any potential full HTML document tags
+    reply = reply
+      .replace(/<\/?html>/g, '')
+      .replace(/<\/?body>/g, '')
+      .replace(/<\/?head>/g, '')
+      .replace(/<!DOCTYPE.*?>/g, '')
+      .trim();
 
     return NextResponse.json({ reply });
   } catch (error) {
