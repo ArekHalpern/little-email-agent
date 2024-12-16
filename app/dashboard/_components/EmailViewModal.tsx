@@ -2,10 +2,11 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Email, EmailThread } from "../types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Reply } from "lucide-react";
 import { useEffect, useState } from "react";
 import { emailCache } from "@/lib/cache";
 import { EmailCacheData } from "@/lib/cache";
+import { Button } from "@/components/ui/button";
 
 function getEmailSubject(email: Email) {
   return (
@@ -45,16 +46,19 @@ function getEmailBody(email: Email) {
   return decoded;
 }
 
+interface EmailViewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  email: Email | null;
+  onReply?: (emailId: string) => void;
+}
+
 export function EmailViewModal({
   isOpen,
   onClose,
   email,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  email: Email | null;
-  thread?: EmailThread;
-}) {
+  onReply,
+}: EmailViewModalProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [emailData, setEmailData] = useState<Email | null>(null);
   const [threadData, setThreadData] = useState<EmailThread | undefined>();
@@ -116,9 +120,25 @@ export function EmailViewModal({
           <div className="flex-1 overflow-y-auto p-6">
             {emailData && (
               <>
-                <h2 className="text-xl font-semibold mb-4">
-                  {getEmailSubject(emailData)}
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">
+                    {getEmailSubject(emailData)}
+                  </h2>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      onClose();
+                      if (email && onReply) {
+                        onReply(email.id);
+                      }
+                    }}
+                  >
+                    <Reply className="h-4 w-4" />
+                    Reply
+                  </Button>
+                </div>
                 {threadData ? (
                   <div className="space-y-6">
                     {threadData.messages.map((message) => (

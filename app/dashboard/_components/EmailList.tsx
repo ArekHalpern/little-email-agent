@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Trash2, Loader2 } from "lucide-react";
+import { Sparkles, Trash2, Loader2, Reply } from "lucide-react";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -19,10 +19,12 @@ import { useToast } from "@/lib/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { emailCache } from "@/lib/cache";
-import { EmailCacheData } from "@/lib/cache";
 
-export default function EmailList() {
+export default function EmailList({
+  onReply,
+}: {
+  onReply?: (emailId: string) => void;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [emails, setEmails] = useState<Email[]>([]);
@@ -145,56 +147,7 @@ export default function EmailList() {
   };
 
   const handleViewEmail = async (email: Email) => {
-    setSelectedEmail({ email });
-
-    // Check cache first
-    const cacheKey = `email:${email.id}`;
-    const cachedData = emailCache.get(cacheKey) as EmailCacheData;
-
-    if (cachedData?.email && cachedData?.thread) {
-      setSelectedEmail({
-        email: cachedData.email,
-        thread: cachedData.thread,
-      });
-      return;
-    }
-
-    // Fetch thread if it exists and not in cache
-    if (email.threadId) {
-      fetchEmailThread(email.threadId);
-    }
-  };
-
-  const fetchEmailThread = async (threadId: string) => {
-    try {
-      const cacheKey = `email:${threadId}`;
-      const cachedData = emailCache.get(cacheKey) as EmailCacheData;
-
-      if (cachedData?.email && cachedData?.thread) {
-        setSelectedEmail((prev) => ({
-          ...prev!,
-          thread: cachedData.thread,
-        }));
-        return;
-      }
-
-      const response = await fetch(`/api/gmail/messages/${threadId}`);
-      if (!response.ok) throw new Error("Failed to fetch thread");
-      const data = await response.json();
-
-      // Cache the response
-      emailCache.set(cacheKey, {
-        email: data.email,
-        thread: data.thread,
-      });
-
-      setSelectedEmail((prev) => ({
-        ...prev!,
-        thread: data.thread,
-      }));
-    } catch (error) {
-      console.error("Error fetching thread:", error);
-    }
+    router.push(`/dashboard/email/${email.id}`);
   };
 
   const handleDeleteEmail = async (e: React.MouseEvent, emailId: string) => {
@@ -398,6 +351,13 @@ export default function EmailList() {
     };
   };
 
+  const handleReply = (e: React.MouseEvent, emailId: string) => {
+    e.stopPropagation();
+    if (onReply) {
+      onReply(emailId);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-background">
@@ -532,7 +492,7 @@ export default function EmailList() {
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <span
                         className={cn(
-                          "text-sm truncate max-w-[200px]",
+                          "text-sm flex-1 overflow-hidden text-ellipsis",
                           isUnread(email)
                             ? "font-semibold"
                             : "font-medium text-muted-foreground"
@@ -542,12 +502,12 @@ export default function EmailList() {
                       </span>
                     </div>
                     <div className="flex flex-col items-end shrink-0">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {email.internalDate
                           ? formatDateTime(email.internalDate).date
                           : ""}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {email.internalDate
                           ? formatDateTime(email.internalDate).time
                           : ""}
@@ -614,6 +574,20 @@ export default function EmailList() {
                     </TooltipTrigger>
                     <TooltipContent>Analyze Email</TooltipContent>
                   </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleReply(e, email.id)}
+                      >
+                        <Reply className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </div>
@@ -645,7 +619,7 @@ export default function EmailList() {
         isOpen={!!selectedEmail}
         onClose={() => setSelectedEmail(null)}
         email={selectedEmail?.email || null}
-        thread={selectedEmail?.thread}
+        onReply={onReply}
       />
     </div>
   );

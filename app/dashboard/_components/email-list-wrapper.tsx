@@ -6,6 +6,10 @@ const EmailList = dynamic(() => import("./EmailList"), {
   ssr: false,
 });
 
-export default function EmailListWrapper() {
-  return <EmailList />;
+export default function EmailListWrapper({
+  onReply,
+}: {
+  onReply?: (emailId: string) => void;
+}) {
+  return <EmailList onReply={onReply} />;
 }

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, Pencil, ArrowLeft, MessageSquare } from "lucide-react";
+import { Loader2, Mail, Pencil, ArrowLeft } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,30 +16,8 @@ import {
 import { EmailViewModal } from "../../_components/EmailViewModal";
 import { Email, EmailThread } from "../../types";
 import { Badge } from "@/components/ui/badge";
-import { ChatModal } from "../../_components/ChatModal";
-
-interface EmailSummaryData {
-  main_points: string[];
-  action_items: string[];
-  key_dates: Array<{
-    date: string;
-    description: string;
-  }>;
-  sentiment: "positive" | "neutral" | "negative";
-  summary: string;
-  participants: string[];
-  important_links?: string[];
-  attachments_summary?: string[];
-}
-
-interface Summary {
-  id: string;
-  emailId: string;
-  summary: EmailSummaryData;
-  checkedActionItems: string[];
-  createdAt: string;
-  updatedAt: string;
-}
+import { emailCache, EmailCacheData } from "@/lib/cache";
+import type { Summary, EmailSummaryData } from "../../types";
 
 interface EmailPrompt {
   id: string;
@@ -69,13 +47,25 @@ export default function SummaryPage() {
     thread?: EmailThread;
   } | null>(null);
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
+
+        // Check cache first
+        const cacheKey = `summary:${emailId}`;
+        const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+
+        if (cachedData?.email && cachedData?.summary) {
+          setEmail(cachedData.email);
+          setSummary(cachedData.summary);
+          setEditedSummary(cachedData.summary.summary || null);
+          setCheckedItems(cachedData.summary.checkedActionItems || []);
+          setIsLoading(false);
+          return;
+        }
 
         // Fetch email details
         const emailResponse = await fetch(`/api/gmail/messages/${emailId}`);
@@ -110,6 +100,12 @@ export default function SummaryPage() {
           setSummary(summaryData);
           setEditedSummary(summaryData?.summary || null);
           setCheckedItems(summaryData?.checkedActionItems || []);
+
+          // Cache the data
+          emailCache.set(cacheKey, {
+            email: emailDetails,
+            summary: summaryData,
+          });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -160,6 +156,17 @@ export default function SummaryPage() {
 
         const updatedSummary = await response.json();
         setSummary(updatedSummary);
+
+        // Update cache with new summary
+        const cacheKey = `summary:${emailId}`;
+        const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+        if (cachedData?.email) {
+          emailCache.set(cacheKey, {
+            ...cachedData,
+            summary: updatedSummary,
+          });
+        }
+
         setIsEditing(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save summary");
@@ -223,10 +230,7 @@ export default function SummaryPage() {
 
   const handleCheckItem = async (item: string) => {
     try {
-      // Store the previous state for rollback
       const previousItems = [...checkedItems];
-
-      // Optimistically update the UI
       const newCheckedItems = checkedItems.includes(item)
         ? checkedItems.filter((i) => i !== item)
         : [...checkedItems, item];
@@ -243,14 +247,13 @@ export default function SummaryPage() {
       });
 
       if (!response.ok) {
-        // If the server request fails, revert to previous state
         setCheckedItems(previousItems);
         const error = await response.json();
         throw new Error(error.message || "Failed to update checked items");
       }
 
-      // Update the summary state to reflect the new checkedItems
-      setSummary((prev) =>
+      // Update summary state
+      setSummary((prev: Summary | null) =>
         prev
           ? {
               ...prev,
@@ -258,29 +261,21 @@ export default function SummaryPage() {
             }
           : null
       );
+
+      // Update cache
+      const cacheKey = `summary:${emailId}`;
+      const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+      if (cachedData?.email && cachedData?.summary) {
+        emailCache.set(cacheKey, {
+          ...cachedData,
+          summary: {
+            ...cachedData.summary,
+            checkedActionItems: newCheckedItems,
+          },
+        });
+      }
     } catch (err) {
       console.error("Failed to update checked items:", err);
-      // Error is already handled above with state reversion
-    }
-  };
-
-  const handleStartChat = async () => {
-    if (!email?.id) return;
-
-    try {
-      // Generate embedding for the email content
-      await fetch("/api/email-embeddings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailId: email.id,
-          content: email.snippet || "",
-        }),
-      });
-
-      setIsChatOpen(true);
-    } catch (error) {
-      console.error("Failed to start chat:", error);
     }
   };
 
@@ -301,182 +296,282 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="container mx-auto px-2 py-3 sm:p-4 space-y-3 sm:space-y-4 max-w-4xl">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => router.push("/dashboard")}
-        className="mb-1 sm:mb-2 h-10 sm:h-9 w-full sm:w-auto justify-start"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Inbox
-      </Button>
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-4xl mx-auto p-4 space-y-6">
+        {/* Header Section */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Inbox
+          </Button>
+        </div>
 
-      <Card className="shadow-sm">
-        <CardContent className="p-3 sm:p-4 space-y-2">
-          <div className="flex flex-col gap-2 sm:gap-4">
-            <div className="space-y-1 min-w-0">
-              <h2 className="text-base sm:text-lg font-medium leading-tight break-words">
-                {email?.subject}
-              </h2>
-              <div className="flex flex-col gap-1 text-xs sm:text-sm text-muted-foreground">
-                <span className="truncate">{email?.from}</span>
-                <span className="truncate">
-                  {email?.internalDate
-                    ? new Date(parseInt(email.internalDate)).toLocaleString()
-                    : "Unknown date"}
-                </span>
+        {/* Email Preview Card */}
+        <Card className="border-none shadow-md bg-card">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4">
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold leading-tight break-words">
+                  {email?.subject}
+                </h2>
+                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                  <span>{email?.from}</span>
+                  <span>
+                    {email?.internalDate
+                      ? new Date(parseInt(email.internalDate)).toLocaleString()
+                      : "Unknown date"}
+                  </span>
+                </div>
               </div>
+              <Button
+                variant="outline"
+                onClick={() => email && handleViewEmail(email)}
+                className="w-full gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                View Original Email
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={() => email && handleViewEmail(email)}
-              className="w-full h-12 sm:h-10"
-            >
-              <Mail className="w-5 h-5 mr-2" />
-              View Email
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card className="shadow-sm">
-        <CardHeader className="space-y-3 sm:space-y-4 p-3 sm:p-6">
-          <div className="flex flex-col gap-3 sm:gap-4">
-            <div className="flex flex-col gap-2">
-              <CardTitle className="text-base sm:text-lg">
-                Email Analysis
-              </CardTitle>
-              <div className="flex flex-col gap-2 w-full">
-                <Select
-                  value={selectedPromptId}
-                  onValueChange={setSelectedPromptId}
-                >
-                  <SelectTrigger className="w-full h-12 sm:h-10">
-                    <SelectValue placeholder="Select template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prompts.map((prompt) => (
-                      <SelectItem key={prompt.id} value={prompt.id}>
-                        {prompt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  onClick={generateSummary}
-                  disabled={isGenerating || !selectedPromptId}
-                  className="w-full h-12 sm:h-10"
-                >
-                  {isGenerating ? "Generating..." : "Generate"}
-                </Button>
+        {/* Analysis Section */}
+        <div className="grid gap-6">
+          <Card className="border-none shadow-md">
+            <CardHeader className="space-y-4 p-6 pb-0">
+              <div className="space-y-4">
+                <CardTitle className="text-xl">Email Analysis</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <Select
+                      value={selectedPromptId}
+                      onValueChange={setSelectedPromptId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select analysis template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {prompts.map((prompt) => (
+                          <SelectItem key={prompt.id} value={prompt.id}>
+                            {prompt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={generateSummary}
+                    disabled={isGenerating || !selectedPromptId}
+                    className="min-w-[120px]"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      "Analyze"
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-6">
-          {isEditing ? (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium mb-2 text-sm sm:text-base">
-                  Summary
-                </h3>
-                <Textarea
-                  value={editedSummary?.summary || ""}
-                  onChange={(e) =>
-                    setEditedSummary((prev) =>
-                      prev ? { ...prev, summary: e.target.value } : null
-                    )
-                  }
-                  className="min-h-[120px] text-base leading-normal"
-                  placeholder="Enter summary..."
-                />
-              </div>
-              <div>
-                <h3 className="font-medium mb-2 text-sm sm:text-base">
-                  Main Points
-                </h3>
-                <Textarea
-                  value={editedSummary?.main_points?.join("\n") || ""}
-                  onChange={(e) =>
-                    setEditedSummary((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            main_points: e.target.value
-                              .split("\n")
-                              .filter(Boolean),
-                          }
-                        : null
-                    )
-                  }
-                  className="min-h-[120px] text-base leading-normal"
-                  placeholder="Enter main points (one per line)..."
-                />
-              </div>
-              <div>
-                <h3 className="font-medium mb-2 text-sm sm:text-base">
-                  Action Items
-                </h3>
-                <Textarea
-                  value={editedSummary?.action_items?.join("\n") || ""}
-                  onChange={(e) =>
-                    setEditedSummary((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            action_items: e.target.value
-                              .split("\n")
-                              .filter(Boolean),
-                          }
-                        : null
-                    )
-                  }
-                  className="min-h-[120px] text-base leading-normal"
-                  placeholder="Enter action items and next steps (one per line)..."
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button
-                  onClick={handleSaveSummary}
-                  disabled={isSaving}
-                  className="w-full h-12 sm:h-10"
-                >
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setEditedSummary(summary?.summary || null);
-                    setIsEditing(false);
-                  }}
-                  className="w-full h-12 sm:h-10"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : summary ? (
-            <div className="space-y-5 sm:space-y-6">
-              <div className="flex flex-col gap-3 sm:gap-2">
-                <h3 className="font-medium text-sm sm:text-base">
-                  Generated Summary
-                </h3>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => setIsEditing(true)}
-                  className="w-full h-12 sm:h-10"
-                >
-                  <Pencil className="h-5 w-5 mr-2" />
-                  Edit Summary
-                </Button>
-              </div>
-              <div className="space-y-5 sm:space-y-6">
-                {summary.summary && (
+            </CardHeader>
+
+            <CardContent className="p-6">
+              {isEditing ? (
+                <div className="space-y-6">
                   <div>
-                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                    <h3 className="font-medium mb-2 text-sm sm:text-base">
+                      Summary
+                    </h3>
+                    <Textarea
+                      value={editedSummary?.summary || ""}
+                      onChange={(e) =>
+                        setEditedSummary((prev: EmailSummaryData | null) =>
+                          prev ? { ...prev, summary: e.target.value } : null
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const target = e.target as HTMLTextAreaElement;
+                          const value = target.value;
+                          const selectionStart = target.selectionStart;
+                          const newValue =
+                            value.slice(0, selectionStart) +
+                            "\n" +
+                            value.slice(target.selectionEnd);
+                          setEditedSummary((prev: EmailSummaryData | null) =>
+                            prev ? { ...prev, summary: newValue } : null
+                          );
+                          // Set cursor position after update
+                          setTimeout(() => {
+                            target.selectionStart = target.selectionEnd =
+                              selectionStart + 1;
+                          }, 0);
+                        }
+                      }}
+                      className="min-h-[120px] text-base leading-normal whitespace-pre-wrap"
+                      placeholder="Enter summary..."
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-medium mb-2 text-sm sm:text-base">
+                      Main Points
+                    </h3>
+                    <Textarea
+                      value={editedSummary?.main_points?.join("\n") || ""}
+                      onChange={(e) =>
+                        setEditedSummary((prev: EmailSummaryData | null) =>
+                          prev
+                            ? {
+                                ...prev,
+                                main_points: e.target.value.split("\n"),
+                              }
+                            : null
+                        )
+                      }
+                      className="min-h-[120px] text-base leading-normal whitespace-pre-wrap"
+                      placeholder="Enter main points (press Enter for new point)..."
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-medium mb-2 text-sm sm:text-base">
+                      Action Items
+                    </h3>
+                    <div className="space-y-2">
+                      {editedSummary?.action_items?.map(
+                        (item: string, index: number) => (
+                          <div key={index} className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              className="mt-1.5 h-4 w-4 rounded border-muted"
+                              checked={checkedItems.includes(item)}
+                              onChange={() => handleCheckItem(item)}
+                            />
+                            <input
+                              type="text"
+                              value={item}
+                              onChange={(e) => {
+                                const newItems = [
+                                  ...(editedSummary?.action_items || []),
+                                ];
+                                newItems[index] = e.target.value;
+                                setEditedSummary(
+                                  (prev: EmailSummaryData | null) =>
+                                    prev
+                                      ? { ...prev, action_items: newItems }
+                                      : null
+                                );
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const newItems = [
+                                    ...(editedSummary?.action_items || []),
+                                  ];
+                                  newItems.splice(index + 1, 0, "");
+                                  setEditedSummary(
+                                    (prev: EmailSummaryData | null) =>
+                                      prev
+                                        ? { ...prev, action_items: newItems }
+                                        : null
+                                  );
+                                  // Focus the new input after render
+                                  setTimeout(() => {
+                                    const inputs =
+                                      document.querySelectorAll<HTMLInputElement>(
+                                        "[data-action-item]"
+                                      );
+                                    inputs[index + 1]?.focus();
+                                  }, 0);
+                                } else if (
+                                  e.key === "Backspace" &&
+                                  item === "" &&
+                                  editedSummary?.action_items &&
+                                  editedSummary.action_items.length > 1
+                                ) {
+                                  e.preventDefault();
+                                  const newItems = [
+                                    ...editedSummary.action_items,
+                                  ];
+                                  newItems.splice(index, 1);
+                                  setEditedSummary(
+                                    (prev: EmailSummaryData | null) =>
+                                      prev
+                                        ? { ...prev, action_items: newItems }
+                                        : null
+                                  );
+                                  // Focus the previous input
+                                  setTimeout(() => {
+                                    const inputs =
+                                      document.querySelectorAll<HTMLInputElement>(
+                                        "[data-action-item]"
+                                      );
+                                    inputs[index - 1]?.focus();
+                                  }, 0);
+                                }
+                              }}
+                              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-ring rounded px-2 py-1"
+                              placeholder="Enter action item..."
+                              data-action-item
+                            />
+                          </div>
+                        )
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditedSummary((prev: EmailSummaryData | null) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  action_items: [
+                                    ...(prev.action_items || []),
+                                    "",
+                                  ],
+                                }
+                              : null
+                          );
+                        }}
+                        className="w-full mt-2"
+                      >
+                        Add Action Item
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      onClick={handleSaveSummary}
+                      disabled={isSaving}
+                      className="w-full h-12 sm:h-10"
+                    >
+                      {isSaving ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setEditedSummary(summary?.summary || null);
+                        setIsEditing(false);
+                      }}
+                      className="w-full h-12 sm:h-10"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : summary ? (
+                <div className="space-y-8">
+                  {/* Summary Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                       <Badge
                         variant={
                           summary.summary.sentiment === "positive"
@@ -485,139 +580,155 @@ export default function SummaryPage() {
                             ? "destructive"
                             : "secondary"
                         }
-                        className="text-sm px-3 py-1"
+                        className="px-2 py-1"
                       >
                         {summary.summary.sentiment}
                       </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        Generated {new Date(summary.createdAt).toLocaleString()}
+                      </span>
                     </div>
-                    <p className="text-muted-foreground text-base leading-relaxed">
-                      {summary.summary.summary}
-                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditing(true)}
+                      className="gap-2"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </Button>
                   </div>
-                )}
 
-                {summary.summary?.main_points?.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-3 text-sm sm:text-base">
-                      Main Points
-                    </h3>
-                    <ul className="list-disc pl-5 space-y-2 text-base leading-relaxed">
-                      {summary.summary.main_points.map(
-                        (point: string, i: number) => (
-                          <li key={i}>{point}</li>
-                        )
-                      )}
-                    </ul>
-                  </div>
-                )}
+                  {/* Main Summary */}
+                  {summary.summary.summary && (
+                    <div className="prose dark:prose-invert max-w-none">
+                      <h3 className="text-lg font-medium mb-3">Key Summary</h3>
+                      <p className="text-muted-foreground leading-relaxed">
+                        {summary.summary.summary}
+                      </p>
+                    </div>
+                  )}
 
-                {summary.summary?.action_items?.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-3 text-sm sm:text-base">
-                      Action Items
-                    </h3>
-                    <ul className="space-y-3">
-                      {summary.summary.action_items.map(
-                        (item: string, i: number) => (
-                          <li
-                            key={i}
-                            className="flex items-start gap-3 text-base leading-relaxed"
-                          >
-                            <input
-                              type="checkbox"
-                              className="mt-1.5 h-5 w-5"
-                              checked={checkedItems.includes(item)}
-                              onChange={() => handleCheckItem(item)}
-                            />
-                            <span className="flex-1">{item}</span>
-                          </li>
-                        )
-                      )}
-                    </ul>
-                  </div>
-                )}
-
-                {summary.summary?.key_dates &&
-                  summary.summary.key_dates.length > 0 && (
-                    <div>
-                      <h3 className="font-medium mb-3 text-sm sm:text-base">
-                        Key Dates
-                      </h3>
-                      <div className="space-y-3">
-                        {summary.summary.key_dates.map((date, i) => (
-                          <div
-                            key={i}
-                            className="flex flex-col gap-1 text-base leading-relaxed"
-                          >
-                            <Badge
-                              variant="outline"
-                              className="w-fit px-3 py-1"
-                            >
-                              {date.date}
-                            </Badge>
-                            <span>{date.description}</span>
-                          </div>
-                        ))}
+                  {/* Main Points */}
+                  {summary.summary.main_points &&
+                    summary.summary.main_points.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">
+                          Main Points
+                        </h3>
+                        <ul className="space-y-2 list-disc pl-4 marker:text-muted-foreground">
+                          {summary.summary.main_points.map(
+                            (point: string, i: number) => (
+                              <li key={i} className="text-muted-foreground">
+                                {point}
+                              </li>
+                            )
+                          )}
+                        </ul>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                {summary.summary?.important_links &&
-                  summary.summary.important_links.length > 0 && (
-                    <div>
-                      <h3 className="font-medium mb-3 text-sm sm:text-base">
-                        Important Links
-                      </h3>
-                      <ul className="space-y-3">
-                        {summary.summary.important_links.map((link, i) => (
-                          <li key={i} className="break-all">
-                            <a
-                              href={link}
-                              className="text-blue-500 hover:underline inline-block max-w-full text-base leading-relaxed"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {link}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center text-muted-foreground py-8 text-base">
-              Select a template and click Generate to analyze this email
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  {/* Action Items */}
+                  {summary.summary.action_items &&
+                    summary.summary.action_items.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">
+                          Action Items
+                        </h3>
+                        <ul className="space-y-3">
+                          {summary.summary.action_items.map(
+                            (item: string, i: number) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-3 text-muted-foreground"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="mt-1 h-4 w-4 rounded border-muted"
+                                  checked={checkedItems.includes(item)}
+                                  onChange={() => handleCheckItem(item)}
+                                />
+                                <span className="flex-1 leading-relaxed">
+                                  {item}
+                                </span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
 
-      <EmailViewModal
-        isOpen={!!selectedEmail}
-        onClose={() => setSelectedEmail(null)}
-        email={selectedEmail?.email || null}
-        thread={selectedEmail?.thread}
-      />
+                  {/* Key Dates */}
+                  {summary.summary.key_dates &&
+                    summary.summary.key_dates.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">Key Dates</h3>
+                        <div className="space-y-3">
+                          {summary.summary.key_dates.map(
+                            (
+                              date: { date: string; description: string },
+                              i: number
+                            ) => (
+                              <div key={i} className="flex flex-col gap-1">
+                                <Badge variant="outline" className="w-fit">
+                                  {date.date}
+                                </Badge>
+                                <span className="text-muted-foreground">
+                                  {date.description}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-      <Button
-        variant="outline"
-        size="lg"
-        onClick={handleStartChat}
-        className="w-full h-12 sm:h-10"
-      >
-        <MessageSquare className="h-5 w-5 mr-2" />
-        Chat with Email
-      </Button>
+                  {/* Important Links */}
+                  {summary.summary.important_links &&
+                    summary.summary.important_links.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">
+                          Important Links
+                        </h3>
+                        <ul className="space-y-2">
+                          {summary.summary.important_links.map(
+                            (link: string, i: number) => (
+                              <li key={i}>
+                                <a
+                                  href={link}
+                                  className="text-primary hover:underline break-all"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {link}
+                                </a>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>
+                    Select a template and click Analyze to process this email
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-      {isChatOpen && email?.id && (
-        <ChatModal
-          emailId={email.id}
-          isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
+        <EmailViewModal
+          isOpen={!!selectedEmail}
+          onClose={() => setSelectedEmail(null)}
+          email={selectedEmail?.email || null}
+          onReply={(emailId) =>
+            router.push(`/dashboard/compose/reply/${emailId}`)
+          }
         />
-      )}
+      </div>
     </div>
   );
 }

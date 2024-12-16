@@ -18,7 +18,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex h-screen w-full">
         <Sidebar variant="inset" collapsible="icon" className="h-screen">
           <AppSidebar />
         </Sidebar>
@@ -28,7 +28,7 @@ export default async function DashboardLayout({
               <Menu className="h-4 w-4" />
             </SidebarTrigger>
           </div>
-          <main className="flex-1 overflow-hidden min-w-0">{children}</main>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

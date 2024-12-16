@@ -1,5 +1,5 @@
 import type { gmail_v1 } from 'googleapis';
-import type { Email, EmailThread } from '@/app/dashboard/types';
+import type { Email, EmailThread, Summary } from '@/app/dashboard/types';
 
 export interface EmailCacheData {
   messages?: gmail_v1.Schema$Message[];
@@ -7,6 +7,7 @@ export interface EmailCacheData {
   nextPageToken?: string | null;
   email?: Email;
   thread?: EmailThread;
+  summary?: Summary;
 }
 
 type CacheEntry<T> = {
