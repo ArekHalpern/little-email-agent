@@ -123,61 +123,74 @@ export async function getGmailClient(userId: string) {
     throw new Error('Gmail not connected')
   }
 
-  // Check if token expires in next 5 minutes
-  if (customer.google_token_expiry) {
-    const expiresIn = customer.google_token_expiry.getTime() - Date.now();
-    const fiveMinutes = 5 * 60 * 1000;
-
-    if (expiresIn < fiveMinutes) {
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-      );
-
-      oauth2Client.setCredentials({
-        refresh_token: customer.google_refresh_token || undefined
-      });
-
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      
-      await updateCustomerGoogleTokens(customer.id, {
-        accessToken: credentials.access_token!,
-        refreshToken: credentials.refresh_token || undefined,
-        expiryDate: credentials.expiry_date ? new Date(credentials.expiry_date) : undefined
-      });
-
-      const newOAuth2Client = new google.auth.OAuth2(
-        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-      );
-
-      newOAuth2Client.setCredentials({
-        access_token: credentials.access_token,
-        refresh_token: customer.google_refresh_token || undefined,
-        expiry_date: credentials.expiry_date
-      });
-
-      return google.gmail({ 
-        version: 'v1', 
-        auth: newOAuth2Client
-      });
-    }
-  }
-
-  // Use existing token
   const oauth2Client = new google.auth.OAuth2(
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
     `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
   );
 
-  oauth2Client.setCredentials({
-    access_token: customer.google_access_token,
-    refresh_token: customer.google_refresh_token || undefined,
-    expiry_date: customer.google_token_expiry?.getTime()
-  });
+  // Check if token expires in next 5 minutes
+  if (customer.google_token_expiry) {
+    const expiresIn = customer.google_token_expiry.getTime() - Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+
+    if (expiresIn < fiveMinutes) {
+      try {
+        oauth2Client.setCredentials({
+          refresh_token: customer.google_refresh_token || undefined
+        });
+
+        // Get new access token and handle nullable response
+        const response = await oauth2Client.getAccessToken();
+        const access_token = response.token;
+        
+        if (access_token) {
+          await updateCustomerGoogleTokens(customer.id, {
+            accessToken: access_token,
+            // Only update refresh token if we got a new one
+            ...(response.res?.data?.refresh_token && {
+              refreshToken: response.res.data.refresh_token
+            }),
+            // Only update expiry if we got one
+            ...(response.res?.data?.expiry_date && {
+              expiryDate: new Date(response.res.data.expiry_date)
+            })
+          });
+
+          oauth2Client.setCredentials({
+            access_token,
+            refresh_token: customer.google_refresh_token || undefined,
+            ...(response.res?.data?.expiry_date && {
+              expiry_date: response.res.data.expiry_date
+            })
+          });
+        } else {
+          throw new Error('Failed to get access token');
+        }
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        // If refresh fails, try using existing token
+        oauth2Client.setCredentials({
+          access_token: customer.google_access_token,
+          refresh_token: customer.google_refresh_token || undefined,
+          expiry_date: customer.google_token_expiry?.getTime()
+        });
+      }
+    } else {
+      // Token not expired, use existing
+      oauth2Client.setCredentials({
+        access_token: customer.google_access_token,
+        refresh_token: customer.google_refresh_token || undefined,
+        expiry_date: customer.google_token_expiry?.getTime()
+      });
+    }
+  } else {
+    // No expiry date, use existing token
+    oauth2Client.setCredentials({
+      access_token: customer.google_access_token,
+      refresh_token: customer.google_refresh_token || undefined
+    });
+  }
 
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
