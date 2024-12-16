@@ -47,7 +47,6 @@ export function EmailViewModal({
   isOpen,
   onClose,
   email,
-  thread,
 }: {
   isOpen: boolean;
   onClose: () => void;

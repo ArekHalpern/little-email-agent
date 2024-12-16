@@ -176,8 +176,8 @@ export default function EmailList() {
 
       if (!response.ok) throw new Error("Failed to delete email");
 
-      // Remove email from local state
-      setEmails(emails.filter((email) => email.id !== emailId));
+      // Refresh the email list instead of just removing from local state
+      await fetchEmails(currentPage - 1, currentPage);
 
       toast({
         title: "Email deleted",
@@ -197,43 +197,41 @@ export default function EmailList() {
 
   const handleDeleteSelected = async () => {
     const emailsToDelete = Array.from(selectedEmails);
+    setDeletingEmails(new Set(emailsToDelete));
 
-    for (const emailId of emailsToDelete) {
-      setDeletingEmails((prev) => new Set(prev).add(emailId));
+    try {
+      // Delete all emails in parallel
+      await Promise.all(
+        emailsToDelete.map(async (emailId) => {
+          const response = await fetch(`/api/gmail/messages/${emailId}`, {
+            method: "DELETE",
+          });
 
-      try {
-        const response = await fetch(`/api/gmail/messages/${emailId}`, {
-          method: "DELETE",
-        });
+          if (!response.ok) {
+            throw new Error(`Failed to delete email ${emailId}`);
+          }
+        })
+      );
 
-        if (!response.ok) throw new Error("Failed to delete email");
+      // Clear selection
+      setSelectedEmails(new Set());
 
-        // Remove email from local state
-        setEmails(emails.filter((email) => email.id !== emailId));
-        setSelectedEmails((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(emailId);
-          return newSet;
-        });
+      // Refresh the email list
+      await fetchEmails(currentPage - 1, currentPage);
 
-        toast({
-          title: "Email deleted",
-          description: "The email has been moved to trash",
-        });
-      } catch (error) {
-        console.error("Error deleting email:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete email",
-          variant: "destructive",
-        });
-      } finally {
-        setDeletingEmails((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(emailId);
-          return newSet;
-        });
-      }
+      toast({
+        title: "Emails deleted",
+        description: `${emailsToDelete.length} emails have been moved to trash`,
+      });
+    } catch (error) {
+      console.error("Error deleting emails:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete some emails",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingEmails(new Set());
     }
   };
 
