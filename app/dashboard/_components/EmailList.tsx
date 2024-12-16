@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, MailOpen } from "lucide-react";
+import { Sparkles, MailOpen, Trash2, Loader2 } from "lucide-react";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useToast } from "@/lib/hooks/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 
 interface EmailListProps {
   onEmailSelect: (emailId: string) => void;
@@ -34,6 +38,9 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
   const [totalEmails, setTotalEmails] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch] = useDebounce(searchQuery, 500);
+  const { toast } = useToast();
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [deletingEmails, setDeletingEmails] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (debouncedSearch !== undefined) {
@@ -161,6 +168,75 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     }
   };
 
+  const handleDeleteEmail = async (e: React.MouseEvent, emailId: string) => {
+    e.stopPropagation();
+
+    try {
+      const response = await fetch(`/api/gmail/messages/${emailId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete email");
+
+      // Remove email from local state
+      setEmails(emails.filter((email) => email.id !== emailId));
+
+      toast({
+        title: "Email deleted",
+        description: "The email has been moved to trash",
+      });
+    } catch (error) {
+      console.error("Error deleting email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete email",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    const emailsToDelete = Array.from(selectedEmails);
+
+    for (const emailId of emailsToDelete) {
+      setDeletingEmails((prev) => new Set(prev).add(emailId));
+
+      try {
+        const response = await fetch(`/api/gmail/messages/${emailId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) throw new Error("Failed to delete email");
+
+        // Remove email from local state
+        setEmails(emails.filter((email) => email.id !== emailId));
+        setSelectedEmails((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(emailId);
+          return newSet;
+        });
+
+        toast({
+          title: "Email deleted",
+          description: "The email has been moved to trash",
+        });
+      } catch (error) {
+        console.error("Error deleting email:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete email",
+          variant: "destructive",
+        });
+      } finally {
+        setDeletingEmails((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(emailId);
+          return newSet;
+        });
+      }
+    }
+  };
+
   function Pagination({
     currentPage,
     totalEmails,
@@ -277,6 +353,10 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     );
   }
 
+  const isUnread = (email: Email) => {
+    return email.labelIds?.includes("UNREAD");
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-background">
@@ -321,8 +401,8 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
   }
 
   return (
-    <div className="w-full bg-background overflow-x-hidden h-full flex flex-col">
-      <div className="border-b p-3 sm:p-4 space-y-3 sm:space-y-4">
+    <div className="flex flex-col h-full min-w-0 bg-background">
+      <div className="border-b p-3 sm:p-4 space-y-3 sm:space-y-4 flex-shrink-0">
         <h2 className="font-semibold text-sm sm:text-base">Inbox</h2>
         <div className="relative">
           <input
@@ -341,66 +421,179 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
           </p>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {emails.map((email: Email) => (
-          <div
-            key={`email-${email.id}`}
-            className="border-b p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors max-w-full"
-            onClick={() => onEmailSelect(email.id)}
-          >
-            <div className="flex flex-col gap-3 max-w-full">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap justify-between items-start gap-2 mb-1">
-                  <h3 className="font-medium text-sm sm:text-base break-words min-w-0 flex-1">
+
+      <div className="flex-1 overflow-y-auto min-w-0">
+        {selectedEmails.size > 0 && (
+          <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center justify-between p-3 sm:p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">
+                  {selectedEmails.size} selected
+                </span>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteSelected}
+                disabled={deletingEmails.size > 0}
+                className="h-8"
+              >
+                {deletingEmails.size > 0 ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Selected
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+        <div className="min-w-0">
+          {emails.map((email: Email) => (
+            <div
+              key={`email-${email.id}`}
+              className={cn(
+                "border-b px-3 py-2 cursor-pointer transition-colors group",
+                isUnread(email)
+                  ? "hover:bg-muted/50 bg-background"
+                  : "hover:bg-muted/50 bg-muted/40",
+                deletingEmails.has(email.id) && "opacity-50 pointer-events-none"
+              )}
+              onClick={() => onEmailSelect(email.id)}
+            >
+              <div className="flex items-start gap-2">
+                <div
+                  className="pt-0.5 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    checked={selectedEmails.has(email.id)}
+                    onCheckedChange={(checked: boolean | "indeterminate") => {
+                      setSelectedEmails((prev) => {
+                        const newSet = new Set(prev);
+                        if (checked === true) {
+                          newSet.add(email.id);
+                        } else {
+                          newSet.delete(email.id);
+                        }
+                        return newSet;
+                      });
+                    }}
+                    className={cn(
+                      "translate-y-[2px] transition-opacity",
+                      !selectedEmails.has(email.id) &&
+                        "opacity-0 group-hover:opacity-100"
+                    )}
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          "text-sm truncate max-w-[200px]",
+                          isUnread(email)
+                            ? "font-semibold"
+                            : "font-medium text-muted-foreground"
+                        )}
+                      >
+                        {getEmailFrom(email)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {email.internalDate
+                        ? new Date(
+                            parseInt(email.internalDate)
+                          ).toLocaleDateString()
+                        : ""}
+                    </span>
+                  </div>
+                  <h3
+                    className={cn(
+                      "text-sm truncate mb-0.5",
+                      isUnread(email) && "font-medium"
+                    )}
+                  >
                     {getEmailSubject(email)}
                   </h3>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <p
+                    className={cn(
+                      "text-xs truncate",
+                      isUnread(email)
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {email.snippet}
+                  </p>
+                </div>
+
+                <div className="flex items-start gap-1 shrink-0">
+                  {deletingEmails.has(email.id) ? (
+                    <div className="h-7 w-7 flex items-center justify-center">
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            processEmail(email.id);
-                          }}
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={(e) => handleDeleteEmail(e, email.id)}
                         >
-                          <Sparkles className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Analyze Email</TooltipContent>
+                      <TooltipContent>Delete Email</TooltipContent>
                     </Tooltip>
+                  )}
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleViewEmail(email)}
-                          className="h-8 w-8"
-                        >
-                          <MailOpen className="h-4 w-4" />
-                          <span className="sr-only">View email</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>View Email</TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          processEmail(email.id);
+                        }}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Analyze Email</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => handleViewEmail(email)}
+                      >
+                        <MailOpen className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View Email</TooltipContent>
+                  </Tooltip>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                  {getEmailFrom(email)}
-                </p>
-                <p className="text-xs sm:text-sm mt-1 text-muted-foreground/80 break-words">
-                  {email.snippet}
-                </p>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
+
       {totalEmails > 0 && (
-        <div className="sticky bottom-0 left-0 right-0 bg-background border-t pb-[env(safe-area-inset-bottom)]">
+        <div className="flex-shrink-0 sticky bottom-0 left-0 right-0 bg-background border-t pb-[env(safe-area-inset-bottom)]">
           <div className="hidden sm:block">
             <Pagination
               currentPage={currentPage}
@@ -427,15 +620,4 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
       />
     </div>
   );
-}
-
-function useDebounce<T>(value: T, delay?: number): [T] {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay || 500);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return [debouncedValue];
 }

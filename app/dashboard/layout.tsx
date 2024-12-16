@@ -22,15 +22,13 @@ export default async function DashboardLayout({
         <Sidebar variant="inset" collapsible="icon" className="h-screen">
           <AppSidebar />
         </Sidebar>
-        <SidebarInset className="flex h-screen flex-1 flex-col bg-background">
+        <SidebarInset className="flex h-screen flex-1 flex-col bg-background min-w-0">
           <div className="flex h-12 items-center bg-background px-4 border-b md:hidden">
             <SidebarTrigger className="h-8 w-8 p-0">
               <Menu className="h-4 w-4" />
             </SidebarTrigger>
           </div>
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
-            {children}
-          </main>
+          <main className="flex-1 overflow-hidden min-w-0">{children}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

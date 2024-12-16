@@ -10,6 +10,7 @@ export interface Email {
   snippet: string;
   threadId?: string;
   internalDate?: string;
+  labelIds?: string[];
   payload: {
     headers: EmailHeader[];
     parts?: {

@@ -62,7 +62,8 @@ export default function ProfilePage() {
       provider: "google",
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?provider=google`,
-        scopes: "email profile https://www.googleapis.com/auth/gmail.readonly",
+        scopes:
+          "email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify",
         queryParams: {
           access_type: "offline",
           prompt: "consent select_account",

@@ -55,17 +55,15 @@ async function getGmailClient() {
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id: messageId } = await context.params
-
   try {
     const { gmail } = await getGmailClient()
 
     // Get full email content
     const email = await gmail.users.messages.get({
       userId: 'me',
-      id: messageId,
+      id: params.id,
       format: 'full'
     })
 
@@ -81,10 +79,30 @@ export async function GET(
 
     return NextResponse.json({ email: email.data, thread: thread?.data })
   } catch (error) {
-    console.error('Full error:', error)
     if (error instanceof Error) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
     return NextResponse.json({ error: 'Failed to fetch email' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { gmail } = await getGmailClient()
+
+    await gmail.users.messages.trash({
+      userId: 'me',
+      id: params.id
+    })
+
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json(
+      { error: 'Failed to delete email' },
+      { status: 500 }
+    )
   }
 } 

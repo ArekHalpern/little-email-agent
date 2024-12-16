@@ -16,12 +16,6 @@ export async function GET(request: NextRequest) {
     // Use getUser instead of getSession for better security
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
-    console.log('Auth check:', {
-      hasUser: !!user,
-      userId: user?.id,
-      error: userError
-    })
-
     if (userError || !user?.id) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
@@ -29,13 +23,6 @@ export async function GET(request: NextRequest) {
     // Get customer and their tokens
     const customer = await prisma.customer.findUnique({
       where: { auth_user_id: user.id }
-    })
-
-    console.log('Customer lookup:', {
-      found: !!customer,
-      hasAccessToken: !!customer?.google_access_token,
-      hasRefreshToken: !!customer?.google_refresh_token,
-      tokenExpiry: customer?.google_token_expiry
     })
 
     if (!customer?.google_access_token) {
@@ -63,12 +50,7 @@ export async function GET(request: NextRequest) {
 
     // Handle token refresh
     oauth2Client.on('tokens', async (tokens) => {
-      console.log('Token refresh occurred:', {
-        hasNewAccessToken: !!tokens.access_token,
-        hasNewRefreshToken: !!tokens.refresh_token,
-        newExpiry: tokens.expiry_date
-      })
-
+      console.log('Gmail token refreshed')
       await updateCustomerGoogleTokens(customer.id, {
         accessToken: tokens.access_token!,
         refreshToken: tokens.refresh_token || undefined,
@@ -81,9 +63,7 @@ export async function GET(request: NextRequest) {
     // Add token verification back
     try {
       await oauth2Client.getAccessToken()
-      console.log('Access token verified successfully')
-    } catch (tokenError) {
-      console.error('Token verification failed:', tokenError)
+    } catch {
       return NextResponse.json(
         { error: 'Gmail token expired or invalid' }, 
         { status: 401 }
@@ -133,10 +113,14 @@ export async function GET(request: NextRequest) {
           const details = await gmail.users.messages.get({
             userId: 'me',
             id: email.id,
-            format: 'full'
+            format: 'full',
+            metadataHeaders: ['From', 'Subject', 'Date']
           });
           
-          emailDetails.push(details.data);
+          emailDetails.push({
+            ...details.data,
+            labelIds: details.data.labelIds
+          });
         }
       }
 
@@ -145,15 +129,13 @@ export async function GET(request: NextRequest) {
         totalEmails,
         nextPageToken: response.data.nextPageToken
       });
-    } catch (apiError) {
-      console.error('Gmail API error:', apiError);
+    } catch {
       return NextResponse.json(
         { error: 'Failed to fetch emails from Gmail' }, 
         { status: 500 }
       );
     }
-  } catch (error) {
-    console.error('Unexpected error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'An unexpected error occurred' }, 
       { status: 500 }
