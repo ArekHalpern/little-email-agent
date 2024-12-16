@@ -3,6 +3,14 @@ import { createClient } from "@/lib/auth/supabase/server";
 import { google } from "googleapis";
 import { prisma } from "@/lib/db/prisma";
 
+// Define error types
+interface GmailError {
+  code?: number;
+  message: string;
+  status?: number;
+  errors?: Array<{ message: string; domain: string; reason: string }>;
+}
+
 export async function POST(req: Request) {
   try {
     const { to, subject, content, type, threadId } = await req.json();
@@ -119,10 +127,14 @@ export async function POST(req: Request) {
       messageId: response.data.id,
       threadId: response.data.threadId,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Send email error:", error);
-    const status = error?.code || 500;
-    const message = error?.message || "Internal error";
+    
+    // Type guard for Gmail API errors
+    const gmailError = error as GmailError;
+    const status = gmailError.code || gmailError.status || 500;
+    const message = gmailError.message || "Internal error";
+    
     return new NextResponse(message, { status });
   }
 } 
