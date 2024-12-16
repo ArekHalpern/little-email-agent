@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Trash2, Loader2, Reply } from "lucide-react";
+import { Trash2, Loader2, Reply } from "lucide-react";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -154,14 +154,6 @@ export default function EmailList({
       email.payload.headers.find((h) => h.name.toLowerCase() === "from")
         ?.value || "Unknown Sender"
     );
-  };
-
-  const processEmail = async (emailId: string) => {
-    try {
-      router.push(`/dashboard/summaries/${emailId}`);
-    } catch (error) {
-      console.error("Error navigating to summary:", error);
-    }
   };
 
   const handleViewEmail = async (email: Email) => {

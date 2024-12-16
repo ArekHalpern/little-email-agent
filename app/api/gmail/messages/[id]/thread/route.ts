@@ -69,7 +69,6 @@ export async function GET(
         // Get message content hash (using snippet as a simple way to compare content)
         const contentHash = msg.snippet;
         const messageId = msg.id;
-        const from = msg.payload?.headers?.find(h => h.name?.toLowerCase() === "from")?.value;
         const references = msg.payload?.headers?.find(h => h.name?.toLowerCase() === "references")?.value;
         const inReplyTo = msg.payload?.headers?.find(h => h.name?.toLowerCase() === "in-reply-to")?.value;
 
@@ -111,11 +110,25 @@ export async function GET(
         threadId: message.data.threadId 
       });
       
-    } catch (gmailError: any) {
+    } catch (gmailError: unknown) {
       console.error('Gmail API error:', gmailError);
+      
+      // Type guard for the error object
+      const isGmailError = (err: unknown): err is { code?: number; message?: string } => {
+        return typeof err === 'object' && err !== null;
+      };
+
       return NextResponse.json(
-        { error: gmailError?.message || 'Failed to fetch from Gmail' },
-        { status: gmailError?.code || 500 }
+        { 
+          error: isGmailError(gmailError) && gmailError.message 
+            ? gmailError.message 
+            : 'Failed to fetch from Gmail' 
+        },
+        { 
+          status: isGmailError(gmailError) && typeof gmailError.code === 'number' 
+            ? gmailError.code 
+            : 500 
+        }
       );
     }
   } catch (error) {

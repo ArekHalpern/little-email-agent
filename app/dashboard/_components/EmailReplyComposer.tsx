@@ -4,12 +4,13 @@ import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, X } from "lucide-react";
+import { Loader2, Send, X, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { EditorToolbar } from "./editor-toolbar";
 import { AutocompleteExtension } from "./extensions/autocomplete";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/lib/hooks/use-toast";
+import { Summary } from "../types";
 
 interface EmailReplyComposerProps {
   onClose: () => void;
@@ -17,6 +18,7 @@ interface EmailReplyComposerProps {
   className?: string;
   threadId?: string;
   onSent?: () => void;
+  summary?: Summary | null;
 }
 
 export function EmailReplyComposer({
@@ -25,10 +27,12 @@ export function EmailReplyComposer({
   className,
   threadId,
   onSent,
+  summary,
 }: EmailReplyComposerProps) {
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
   const [isSuggestLoading, setIsSuggestLoading] = useState(false);
+  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -72,6 +76,45 @@ export function EmailReplyComposer({
       console.error("Autocomplete error:", error);
     } finally {
       setIsSuggestLoading(false);
+    }
+  };
+
+  const handleGenerateReply = async () => {
+    if (!summary || !editor) return;
+
+    try {
+      setIsGeneratingReply(true);
+
+      const response = await fetch("/api/openai/generate-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: summary.summary,
+          actionItems: summary.summary.action_items,
+          keyDates: summary.summary.key_dates,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate reply");
+
+      const { reply } = await response.json();
+
+      // Clear existing content and insert the generated reply
+      editor.commands.setContent(reply);
+
+      toast({
+        title: "Reply generated",
+        description: "You can now edit the generated reply before sending",
+      });
+    } catch (error) {
+      console.error("Error generating reply:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate reply. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingReply(false);
     }
   };
 
@@ -139,6 +182,26 @@ export function EmailReplyComposer({
           onSuggest={handleSuggest}
           isSuggestLoading={isSuggestLoading}
         />
+        {summary && (
+          <div className="px-4 py-2 border-b bg-muted/50">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateReply}
+              disabled={isGeneratingReply}
+              className="w-full gap-2"
+            >
+              {isGeneratingReply ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {isGeneratingReply
+                ? "Generating reply..."
+                : "Generate reply from summary"}
+            </Button>
+          </div>
+        )}
         <div className="border-t flex-1 overflow-y-auto">
           <EditorContent editor={editor} className="h-full" />
         </div>

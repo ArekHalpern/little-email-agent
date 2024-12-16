@@ -50,6 +50,7 @@ export function EmailRightPanel({
             threadId={threadId}
             className="border-none shadow-none rounded-none h-full"
             onSent={onEmailSent}
+            summary={summary}
           />
         </TabsContent>
 
@@ -58,7 +59,7 @@ export function EmailRightPanel({
           className="m-0 p-3 flex-1 overflow-y-auto"
         >
           <Card className="h-full">
-            <div className="p-3 space-y-4">
+            <div className="p-3 space-y-8">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Email Summary</h3>
                 <div className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
@@ -115,7 +116,7 @@ export function EmailRightPanel({
               )}
 
               {summary && (
-                <div className="space-y-4">
+                <div className="space-y-8">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Badge
@@ -130,41 +131,115 @@ export function EmailRightPanel({
                       >
                         {summary.summary.sentiment}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         Generated {new Date(summary.createdAt).toLocaleString()}
                       </span>
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Key Points</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {summary.summary.summary}
-                    </p>
-                  </div>
+                  {summary.summary.summary && (
+                    <div className="prose dark:prose-invert max-w-none">
+                      <h3 className="text-lg font-medium mb-3">Key Summary</h3>
+                      <p className="text-muted-foreground leading-relaxed">
+                        {summary.summary.summary}
+                      </p>
+                    </div>
+                  )}
+
+                  {summary.summary.main_points &&
+                    summary.summary.main_points.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">
+                          Main Points
+                        </h3>
+                        <ul className="space-y-2 list-disc pl-4 marker:text-muted-foreground">
+                          {summary.summary.main_points.map(
+                            (point: string, i: number) => (
+                              <li key={i} className="text-muted-foreground">
+                                {point}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
 
                   {summary.summary.action_items &&
                     summary.summary.action_items.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">
                           Action Items
-                        </h4>
+                        </h3>
+                        <ul className="space-y-3">
+                          {summary.summary.action_items.map(
+                            (item: string, i: number) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-3 text-muted-foreground"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="mt-1 h-4 w-4 rounded border-muted"
+                                  checked={summary.checkedActionItems.includes(
+                                    item
+                                  )}
+                                  onChange={() => onCheckItem?.(item)}
+                                />
+                                <span className="flex-1 leading-relaxed">
+                                  {item}
+                                </span>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
+
+                  {summary.summary.key_dates &&
+                    summary.summary.key_dates.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">Key Dates</h3>
+                        <div className="space-y-3">
+                          {summary.summary.key_dates.map(
+                            (
+                              date: { date: string; description: string },
+                              i: number
+                            ) => (
+                              <div key={i} className="flex flex-col gap-1">
+                                <Badge variant="outline" className="w-fit">
+                                  {date.date}
+                                </Badge>
+                                <span className="text-muted-foreground">
+                                  {date.description}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  {summary.summary.important_links &&
+                    summary.summary.important_links.length > 0 && (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <h3 className="text-lg font-medium mb-3">
+                          Important Links
+                        </h3>
                         <ul className="space-y-2">
-                          {summary.summary.action_items.map((item, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <input
-                                type="checkbox"
-                                className="mt-1 h-4 w-4 rounded border-muted"
-                                checked={summary.checkedActionItems.includes(
-                                  item
-                                )}
-                                onChange={() => onCheckItem?.(item)}
-                              />
-                              <span className="text-sm text-muted-foreground">
-                                {item}
-                              </span>
-                            </li>
-                          ))}
+                          {summary.summary.important_links.map(
+                            (link: string, i: number) => (
+                              <li key={i}>
+                                <a
+                                  href={link}
+                                  className="text-primary hover:underline break-all"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {link}
+                                </a>
+                              </li>
+                            )
+                          )}
                         </ul>
                       </div>
                     )}
