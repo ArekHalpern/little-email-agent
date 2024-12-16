@@ -55,15 +55,17 @@ async function getGmailClient() {
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  
   try {
     const { gmail } = await getGmailClient()
 
     // Get full email content
     const email = await gmail.users.messages.get({
       userId: 'me',
-      id: params.id,
+      id,
       format: 'full'
     })
 
@@ -88,14 +90,16 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  
   try {
     const { gmail } = await getGmailClient()
 
     await gmail.users.messages.trash({
       userId: 'me',
-      id: params.id
+      id
     })
 
     return NextResponse.json({ success: true })

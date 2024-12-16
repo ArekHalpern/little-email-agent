@@ -41,6 +41,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
   const { toast } = useToast();
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [deletingEmails, setDeletingEmails] = useState<Set<string>>(new Set());
+  const [deletingEmail, setDeletingEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (debouncedSearch !== undefined) {
@@ -170,6 +171,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
 
   const handleDeleteEmail = async (e: React.MouseEvent, emailId: string) => {
     e.stopPropagation();
+    setDeletingEmail(emailId);
 
     try {
       const response = await fetch(`/api/gmail/messages/${emailId}`, {
@@ -192,6 +194,8 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
         description: "Failed to delete email",
         variant: "destructive",
       });
+    } finally {
+      setDeletingEmail(null);
     }
   };
 
@@ -357,6 +361,17 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
     return email.labelIds?.includes("UNREAD");
   };
 
+  const formatDateTime = (timestamp: string) => {
+    const date = new Date(parseInt(timestamp));
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    };
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-background">
@@ -461,7 +476,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                 "border-b px-3 py-2 cursor-pointer transition-colors group",
                 isUnread(email)
                   ? "hover:bg-muted/50 bg-background"
-                  : "hover:bg-muted/50 bg-muted/40",
+                  : "hover:bg-muted/50 bg-muted/50",
                 deletingEmails.has(email.id) && "opacity-50 pointer-events-none"
               )}
               onClick={() => onEmailSelect(email.id)}
@@ -484,11 +499,7 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                         return newSet;
                       });
                     }}
-                    className={cn(
-                      "translate-y-[2px] transition-opacity",
-                      !selectedEmails.has(email.id) &&
-                        "opacity-0 group-hover:opacity-100"
-                    )}
+                    className="translate-y-[2px]"
                   />
                 </div>
 
@@ -506,13 +517,18 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                         {getEmailFrom(email)}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {email.internalDate
-                        ? new Date(
-                            parseInt(email.internalDate)
-                          ).toLocaleDateString()
-                        : ""}
-                    </span>
+                    <div className="flex flex-col items-end shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {email.internalDate
+                          ? formatDateTime(email.internalDate).date
+                          : ""}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {email.internalDate
+                          ? formatDateTime(email.internalDate).time
+                          : ""}
+                      </span>
+                    </div>
                   </div>
                   <h3
                     className={cn(
@@ -535,25 +551,28 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                 </div>
 
                 <div className="flex items-start gap-1 shrink-0">
-                  {deletingEmails.has(email.id) ? (
-                    <div className="h-7 w-7 flex items-center justify-center">
-                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                          onClick={(e) => handleDeleteEmail(e, email.id)}
-                        >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                        onClick={(e) => handleDeleteEmail(e, email.id)}
+                        disabled={deletingEmail === email.id}
+                      >
+                        {deletingEmail === email.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
                           <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete Email</TooltipContent>
-                    </Tooltip>
-                  )}
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {deletingEmail === email.id
+                        ? "Deleting..."
+                        : "Delete Email"}
+                    </TooltipContent>
+                  </Tooltip>
 
                   <Tooltip>
                     <TooltipTrigger asChild>
