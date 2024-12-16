@@ -4,9 +4,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import type { NextRequest } from "next/server";
 
+type RouteParams = {
+  params: {
+    id: string;
+  };
+};
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: Record<string, string> }
+  { params }: RouteParams
 ) {
   const supabase = createClient();
 
