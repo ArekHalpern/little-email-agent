@@ -1,6 +1,5 @@
 import { Email, EmailThread } from "@/app/dashboard/types";
 import { Summary } from "@/app/dashboard/types";
-import { LRUCache } from "lru-cache";
 
 export interface EmailCacheData {
   email?: Email;
@@ -11,7 +10,30 @@ export interface EmailCacheData {
   nextPageToken?: string;
 }
 
-export const emailCache = new LRUCache<string, EmailCacheData>({
-  max: 500, // Maximum number of items
-  ttl: 1000 * 60 * 60, // 1 hour
-}); 
+export interface EmailCache {
+  get: (key: string) => EmailCacheData | undefined;
+  set: (key: string, value: EmailCacheData) => void;
+  clear: () => void;
+}
+
+class Cache implements EmailCache {
+  private cache: Map<string, EmailCacheData>;
+
+  constructor() {
+    this.cache = new Map();
+  }
+
+  get(key: string) {
+    return this.cache.get(key);
+  }
+
+  set(key: string, value: EmailCacheData) {
+    this.cache.set(key, value);
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
+export const emailCache = new Cache(); 
