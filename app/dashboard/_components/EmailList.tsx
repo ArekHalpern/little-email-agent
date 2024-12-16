@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { EmailViewModal } from "./EmailViewModal";
 import { Email, EmailThread } from "../types";
 import GoogleAuth from "@/app/(auth)/_components/GoogleAuth";
+import { emailCache } from "@/lib/cache";
 import {
   Tooltip,
   TooltipContent,
@@ -83,7 +84,9 @@ export default function EmailList({
         url.searchParams.append("q", debouncedSearch);
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        cache: "no-store", // Prevent caching of GET request
+      });
       const data = await response.json();
 
       if (response.status === 401) {
@@ -110,6 +113,10 @@ export default function EmailList({
       setEmails(data.messages);
       setTotalEmails(data.totalEmails);
       setCurrentPage(page);
+
+      // Update cache with new data
+      const cacheKey = `emails:${page}:${debouncedSearch}`;
+      emailCache.set(cacheKey, data);
     } catch (error) {
       console.error("Error fetching emails:", error);
       setAuthError(
@@ -157,12 +164,29 @@ export default function EmailList({
     try {
       const response = await fetch(`/api/gmail/messages/${emailId}`, {
         method: "DELETE",
+        cache: "no-store",
       });
 
       if (!response.ok) throw new Error("Failed to delete email");
 
-      // Refresh the email list instead of just removing from local state
-      await fetchEmails(currentPage - 1, currentPage);
+      // Remove the email from local state immediately
+      setEmails((prevEmails) =>
+        prevEmails.filter((email) => email.id !== emailId)
+      );
+
+      // Update total count
+      setTotalEmails((prev) => Math.max(0, prev - 1));
+
+      // Clear all cache
+      emailCache.clear();
+
+      // If this was the last email on the page and not the first page, go to previous page
+      if (emails.length === 1 && currentPage > 1) {
+        await fetchEmails(0, currentPage - 1);
+      } else if (emails.length > 1) {
+        // Only refetch if there are more emails to show
+        await fetchEmails(0, currentPage);
+      }
 
       toast({
         title: "Email deleted",
@@ -175,6 +199,9 @@ export default function EmailList({
         description: "Failed to delete email",
         variant: "destructive",
       });
+
+      // Refresh the list to ensure consistency
+      await fetchEmails(0, currentPage);
     } finally {
       setDeletingEmail(null);
     }
@@ -190,6 +217,7 @@ export default function EmailList({
         emailsToDelete.map(async (emailId) => {
           const response = await fetch(`/api/gmail/messages/${emailId}`, {
             method: "DELETE",
+            cache: "no-store", // Prevent caching of DELETE request
           });
 
           if (!response.ok) {
@@ -201,8 +229,19 @@ export default function EmailList({
       // Clear selection
       setSelectedEmails(new Set());
 
+      // Clear all cache
+      emailCache.clear();
+
+      // Update local state
+      setEmails((prevEmails) =>
+        prevEmails.filter((email) => !emailsToDelete.includes(email.id))
+      );
+
+      // Update total count
+      setTotalEmails((prev) => Math.max(0, prev - emailsToDelete.length));
+
       // Refresh the email list
-      await fetchEmails(currentPage - 1, currentPage);
+      await fetchEmails(0, currentPage);
 
       toast({
         title: "Emails deleted",
@@ -215,6 +254,9 @@ export default function EmailList({
         description: "Failed to delete some emails",
         variant: "destructive",
       });
+
+      // Refresh to ensure consistency
+      await fetchEmails(0, currentPage);
     } finally {
       setDeletingEmails(new Set());
     }

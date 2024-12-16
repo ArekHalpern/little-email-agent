@@ -1,43 +1,32 @@
-import type { gmail_v1 } from 'googleapis';
-import type { Email, EmailThread, Summary } from '@/app/dashboard/types';
+import type { Email, Summary } from '@/app/dashboard/types';
 
 export interface EmailCacheData {
-  messages?: gmail_v1.Schema$Message[];
-  totalEmails?: number;
-  nextPageToken?: string | null;
   email?: Email;
-  thread?: EmailThread;
   summary?: Summary;
+  messages?: Email[];
+  totalEmails?: number;
+  nextPageToken?: string;
 }
 
-type CacheEntry<T> = {
-  data: T;
-  timestamp: number;
-};
+export interface EmailCache {
+  get: (key: string) => EmailCacheData | undefined;
+  set: (key: string, value: EmailCacheData) => void;
+  clear: () => void;
+}
 
-type CacheData = EmailCacheData | string;
+class Cache implements EmailCache {
+  private cache: Map<string, EmailCacheData>;
 
-class EmailCache {
-  private cache: Map<string, CacheEntry<CacheData>> = new Map();
-  private readonly TTL = 5 * 60 * 1000; // 5 minutes cache TTL
-
-  set(key: string, data: CacheData) {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-    });
+  constructor() {
+    this.cache = new Map();
   }
 
-  get(key: string): CacheData | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
+  get(key: string) {
+    return this.cache.get(key);
+  }
 
-    if (Date.now() - entry.timestamp > this.TTL) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.data;
+  set(key: string, value: EmailCacheData) {
+    this.cache.set(key, value);
   }
 
   clear() {
@@ -45,4 +34,4 @@ class EmailCache {
   }
 }
 
-export const emailCache = new EmailCache(); 
+export const emailCache = new Cache(); 

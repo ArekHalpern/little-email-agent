@@ -4,6 +4,10 @@ import type { gmail_v1 } from 'googleapis'
 import { getGmailClient } from '@/lib/db/actions'
 import { emailCache } from '@/lib/cache'
 import type { EmailCacheData } from '@/lib/cache'
+import type { Email } from '@/app/dashboard/types'
+
+// Create a separate cache for page tokens
+const pageTokenCache = new Map<string, string>();
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
     const messages = response.data.messages || [];
     const totalEmails = response.data.resultSizeEstimate || 0;
 
-    // Get message details in parallel to speed up fetching
+    // Get message details in parallel
     const emailDetails = await Promise.all(
       messages.map(msg => 
         gmail.users.messages.get({
@@ -53,9 +57,17 @@ export async function GET(request: NextRequest) {
 
     const result: EmailCacheData = {
       messages: emailDetails.map(detail => ({
-        ...detail.data,
+        id: detail.data.id!,
         labelIds: detail.data.labelIds || [],
-      })),
+        snippet: detail.data.snippet || "",
+        threadId: detail.data.threadId || undefined,
+        internalDate: detail.data.internalDate || "",
+        payload: {
+          headers: detail.data.payload?.headers || [],
+          parts: detail.data.payload?.parts,
+          body: detail.data.payload?.body,
+        }
+      } as Email)),
       totalEmails,
       nextPageToken: response.data.nextPageToken || undefined,
     };
@@ -81,10 +93,10 @@ async function getPageToken(
   search: string
 ) {
   const cacheKey = `pageToken:${targetPage}:${search}`;
-  const cachedToken = emailCache.get(cacheKey);
+  const cachedToken = pageTokenCache.get(cacheKey);
   
   if (cachedToken) {
-    return cachedToken as string;
+    return cachedToken;
   }
 
   let currentPage = 1;
@@ -101,8 +113,8 @@ async function getPageToken(
     currentToken = response.data.nextPageToken || undefined;
     if (!currentToken) break;
     
-    // Cache each page token we discover
-    emailCache.set(`pageToken:${currentPage + 1}:${search}`, currentToken);
+    // Cache page tokens in separate cache
+    pageTokenCache.set(`pageToken:${currentPage + 1}:${search}`, currentToken);
     currentPage++;
   }
 

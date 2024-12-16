@@ -2,19 +2,26 @@ import { createClient } from "@/lib/auth/supabase/server";
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import type { NextRequest } from "next/server";
 
 export async function GET(
-  request: Request,
-  context: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Record<string, string> }
 ) {
+  const supabase = createClient();
+
   try {
-    const messageId = context.params.id;
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get auth user first
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user?.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+
+    // Then get the message ID from params
+    const messageId = params.id;
 
     const customer = await prisma.customer.findUnique({
       where: { auth_user_id: user.id },
@@ -35,6 +42,7 @@ export async function GET(
     const message = await gmail.users.messages.get({
       userId: "me",
       id: messageId,
+      format: "full",
     });
 
     if (!message.data.threadId) {
@@ -44,10 +52,19 @@ export async function GET(
     const thread = await gmail.users.threads.get({
       userId: "me",
       id: message.data.threadId,
+      format: "full",
+      metadataHeaders: ["From", "Subject", "Date"],
     });
 
+    const sortedMessages = (thread.data.messages || [message.data])
+      .sort((a, b) => {
+        const dateA = parseInt(a.internalDate || "0");
+        const dateB = parseInt(b.internalDate || "0");
+        return dateB - dateA;
+      });
+
     return NextResponse.json({ 
-      thread: (thread.data.messages || [message.data]).reverse()
+      thread: sortedMessages
     });
   } catch (error) {
     console.error("Error fetching thread:", error);
