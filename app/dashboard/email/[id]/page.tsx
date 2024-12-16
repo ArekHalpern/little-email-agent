@@ -31,17 +31,25 @@ export default function EmailViewPage() {
       try {
         setIsLoading(true);
         const response = await fetch(`/api/gmail/messages/${emailId}/thread`);
-        if (!response.ok) throw new Error("Failed to fetch thread");
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch thread");
+        }
+
+        if (!data.thread || !Array.isArray(data.thread)) {
+          throw new Error("Invalid thread data received");
+        }
+
         setThread(data.thread);
         if (data.thread.length > 0) {
           setCurrentEmail(data.thread[0]);
-          // Calculate word count immediately
           const count = getThreadWordCount(data.thread, data.thread[0]);
           setWordCount(count);
         }
       } catch (error) {
         console.error("Error fetching thread:", error);
+        // Optionally show a toast or other user feedback here
       } finally {
         setIsLoading(false);
       }

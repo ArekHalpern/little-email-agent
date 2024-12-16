@@ -259,7 +259,7 @@ export function Composer({ emailId, onClose }: ComposerProps) {
 
               {/* Footer */}
               <div className="border-t p-2 bg-muted/50">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-end">
                   <Button
                     onClick={handleSend}
                     disabled={isSending}

@@ -116,12 +116,12 @@ export function EmailReplyComposer({
   return (
     <div
       className={cn(
-        "bg-background border rounded-lg shadow-sm flex flex-col",
+        "bg-background border rounded-lg shadow-sm flex flex-col h-full",
         inThread ? "mx-0" : "mx-4 mb-4",
         className
       )}
     >
-      <div className="flex items-center justify-between px-4 py-2 border-b">
+      <div className="flex items-center justify-between px-4 py-2 border-b flex-shrink-0">
         <h3 className="text-sm font-medium">Reply</h3>
         <Button
           variant="ghost"
@@ -133,19 +133,19 @@ export function EmailReplyComposer({
         </Button>
       </div>
 
-      <div className="flex-1 flex flex-col min-h-[400px]">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <EditorToolbar
           editor={editor}
           onSuggest={handleSuggest}
           isSuggestLoading={isSuggestLoading}
         />
-        <div className="border-t flex-1 flex flex-col">
-          <EditorContent editor={editor} className="flex-1" />
+        <div className="border-t flex-1 overflow-y-auto">
+          <EditorContent editor={editor} className="h-full" />
         </div>
       </div>
 
-      <div className="border-t p-2 bg-muted/50">
-        <div className="flex items-center justify-between">
+      <div className="border-t p-2 bg-muted/50 flex-shrink-0">
+        <div className="flex items-center justify-end">
           <Button onClick={handleSend} disabled={isSending} className="gap-2">
             {isSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />

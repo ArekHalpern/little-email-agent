@@ -34,16 +34,16 @@ export function EmailRightPanel({
   onEmailSent,
 }: EmailRightPanelProps) {
   return (
-    <div className={cn("w-[380px] flex-shrink-0 border-l", className)}>
-      <Tabs defaultValue="reply" className="h-full">
-        <div className="border-b px-4 py-2">
+    <div className={cn("w-[380px] flex-shrink-0 border-l h-screen", className)}>
+      <Tabs defaultValue="reply" className="h-full flex flex-col">
+        <div className="border-b px-4 py-2 flex-shrink-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="reply">Reply</TabsTrigger>
             <TabsTrigger value="analysis">Summarize</TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="reply" className="m-0 h-[calc(100vh-8rem)]">
+        <TabsContent value="reply" className="m-0 flex-1 overflow-hidden">
           <EmailReplyComposer
             onClose={onCloseReply}
             inThread={true}
@@ -55,7 +55,7 @@ export function EmailRightPanel({
 
         <TabsContent
           value="analysis"
-          className="m-0 p-3 h-[calc(100vh-8rem)] overflow-y-auto"
+          className="m-0 p-3 flex-1 overflow-y-auto"
         >
           <Card className="h-full">
             <div className="p-3 space-y-4">
