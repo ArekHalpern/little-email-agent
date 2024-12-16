@@ -305,11 +305,11 @@ export default function SummaryPage() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => router.push("/dashboard/summaries")}
+        onClick={() => router.push("/dashboard")}
         className="mb-1 sm:mb-2 h-10 sm:h-9 w-full sm:w-auto justify-start"
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Summaries
+        Back to Inbox
       </Button>
 
       <Card className="shadow-sm">

@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { randomUUID } from 'crypto'
 import templatesJson from './templates.json'
+import { google } from 'googleapis'
 
 interface EmailTemplate {
   name: string;
@@ -105,4 +106,78 @@ export async function getCustomerDetails(authUserId: string) {
     }
   });
   return customer;
+}
+
+export async function getGmailClient(userId: string) {
+  const customer = await prisma.customer.findUnique({
+    where: { auth_user_id: userId },
+    select: {
+      id: true,
+      google_access_token: true,
+      google_refresh_token: true,
+      google_token_expiry: true
+    }
+  });
+
+  if (!customer?.google_access_token) {
+    throw new Error('Gmail not connected')
+  }
+
+  // Check if token expires in next 5 minutes
+  if (customer.google_token_expiry) {
+    const expiresIn = customer.google_token_expiry.getTime() - Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+
+    if (expiresIn < fiveMinutes) {
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      );
+
+      oauth2Client.setCredentials({
+        refresh_token: customer.google_refresh_token || undefined
+      });
+
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      
+      await updateCustomerGoogleTokens(customer.id, {
+        accessToken: credentials.access_token!,
+        refreshToken: credentials.refresh_token || undefined,
+        expiryDate: credentials.expiry_date ? new Date(credentials.expiry_date) : undefined
+      });
+
+      const newOAuth2Client = new google.auth.OAuth2(
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      );
+
+      newOAuth2Client.setCredentials({
+        access_token: credentials.access_token,
+        refresh_token: customer.google_refresh_token || undefined,
+        expiry_date: credentials.expiry_date
+      });
+
+      return google.gmail({ 
+        version: 'v1', 
+        auth: newOAuth2Client
+      });
+    }
+  }
+
+  // Use existing token
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+  );
+
+  oauth2Client.setCredentials({
+    access_token: customer.google_access_token,
+    refresh_token: customer.google_refresh_token || undefined,
+    expiry_date: customer.google_token_expiry?.getTime()
+  });
+
+  return google.gmail({ version: 'v1', auth: oauth2Client });
 }

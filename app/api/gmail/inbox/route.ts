@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/auth/supabase/server'
 import { NextResponse, NextRequest } from 'next/server'
-import { google } from 'googleapis'
 import type { gmail_v1 } from 'googleapis'
-import { prisma } from '@/lib/db/prisma'
-import { updateCustomerGoogleTokens } from '@/lib/db/actions'
+import { getGmailClient } from '@/lib/db/actions'
+import { emailCache } from '@/lib/cache'
+import type { EmailCacheData } from '@/lib/cache'
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,133 +12,99 @@ export async function GET(request: NextRequest) {
     const pageSize = 10;
     
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
     
-    // Use getUser instead of getSession for better security
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    if (userError || !user?.id) {
+    if (!user?.id) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Get customer and their tokens
-    const customer = await prisma.customer.findUnique({
-      where: { auth_user_id: user.id }
-    })
-
-    if (!customer?.google_access_token) {
-      return NextResponse.json({ error: 'Gmail not connected' }, { status: 401 })
-    }
-
-    // Get fresh session for tokens
-    const { data: { session } } = await supabase.auth.getSession()
+    // Create cache key based on page and search
+    const cacheKey = `emails:${page}:${search}`;
+    const cachedData = emailCache.get(cacheKey);
     
-    if (!session) {
-      return NextResponse.json({ error: 'No active session' }, { status: 401 })
+    if (cachedData) {
+      return NextResponse.json(cachedData);
     }
 
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
-    )
+    const gmail = await getGmailClient(user.id);
 
-    oauth2Client.setCredentials({
-      access_token: customer.google_access_token,
-      refresh_token: customer.google_refresh_token || undefined,
-      expiry_date: customer.google_token_expiry?.getTime()
-    })
+    // Get messages list with partial data to reduce API calls
+    const response = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: pageSize,
+      q: search,
+      pageToken: page > 1 ? await getPageToken(gmail, page, pageSize, search) : undefined,
+    });
 
-    // Handle token refresh
-    oauth2Client.on('tokens', async (tokens) => {
-      console.log('Gmail token refreshed')
-      await updateCustomerGoogleTokens(customer.id, {
-        accessToken: tokens.access_token!,
-        refreshToken: tokens.refresh_token || undefined,
-        expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined
-      })
-    })
+    const messages = response.data.messages || [];
+    const totalEmails = response.data.resultSizeEstimate || 0;
 
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
-
-    // Add token verification back
-    try {
-      await oauth2Client.getAccessToken()
-    } catch {
-      return NextResponse.json(
-        { error: 'Gmail token expired or invalid' }, 
-        { status: 401 }
-      )
-    }
-
-    try {
-      // First get total count of messages with search query
-      const countResponse: { data: gmail_v1.Schema$ListMessagesResponse } = await gmail.users.messages.list({
-        userId: 'me',
-        maxResults: 1,
-        q: search
-      });
-      
-      const totalEmails = countResponse.data.resultSizeEstimate || 0;
-      let currentPageToken: string | undefined = undefined;
-      let currentPage = 1;
-
-      // Navigate to requested page
-      while (currentPage < page) {
-        const tempResponse: { data: gmail_v1.Schema$ListMessagesResponse } = await gmail.users.messages.list({
+    // Get message details in parallel to speed up fetching
+    const emailDetails = await Promise.all(
+      messages.map(msg => 
+        gmail.users.messages.get({
           userId: 'me',
-          maxResults: pageSize,
-          pageToken: currentPageToken,
-          q: search
-        });
-        
-        currentPageToken = tempResponse.data.nextPageToken || undefined;
-        if (!currentPageToken) break;
-        currentPage++;
-      }
+          id: msg.id!,
+          format: 'metadata',
+          metadataHeaders: ['From', 'Subject', 'Date'],
+        })
+      )
+    );
 
-      // Get emails for current page
-      const response: { data: gmail_v1.Schema$ListMessagesResponse } = await gmail.users.messages.list({
-        userId: 'me',
-        maxResults: pageSize,
-        pageToken: currentPageToken,
-        q: search
-      });
-      
-      const emails = response.data.messages || [];
-      const emailDetails = [];
+    const result: EmailCacheData = {
+      messages: emailDetails.map(detail => ({
+        ...detail.data,
+        labelIds: detail.data.labelIds || [],
+      })),
+      totalEmails,
+      nextPageToken: response.data.nextPageToken || undefined,
+    };
 
-      // Get full message details including thread info
-      for (const email of emails) {
-        if (email.id) {
-          const details = await gmail.users.messages.get({
-            userId: 'me',
-            id: email.id,
-            format: 'full',
-            metadataHeaders: ['From', 'Subject', 'Date']
-          });
-          
-          emailDetails.push({
-            ...details.data,
-            labelIds: details.data.labelIds
-          });
-        }
-      }
+    // Cache the results
+    emailCache.set(cacheKey, result);
 
-      return NextResponse.json({
-        messages: emailDetails,
-        totalEmails,
-        nextPageToken: response.data.nextPageToken
-      });
-    } catch {
-      return NextResponse.json(
-        { error: 'Failed to fetch emails from Gmail' }, 
-        { status: 500 }
-      );
-    }
-  } catch {
+    return NextResponse.json(result);
+  } catch (err) {
+    console.error('Unexpected error:', err);
     return NextResponse.json(
-      { error: 'An unexpected error occurred' }, 
+      { error: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
+}
+
+// Helper function to get the correct page token
+async function getPageToken(
+  gmail: gmail_v1.Gmail,
+  targetPage: number,
+  pageSize: number,
+  search: string
+) {
+  const cacheKey = `pageToken:${targetPage}:${search}`;
+  const cachedToken = emailCache.get(cacheKey);
+  
+  if (cachedToken) {
+    return cachedToken as string;
+  }
+
+  let currentPage = 1;
+  let currentToken: string | undefined = undefined;
+
+  while (currentPage < targetPage) {
+    const response: { data: gmail_v1.Schema$ListMessagesResponse } = await gmail.users.messages.list({
+      userId: 'me',
+      maxResults: pageSize,
+      pageToken: currentToken,
+      q: search,
+    });
+
+    currentToken = response.data.nextPageToken || undefined;
+    if (!currentToken) break;
+    
+    // Cache each page token we discover
+    emailCache.set(`pageToken:${currentPage + 1}:${search}`, currentToken);
+    currentPage++;
+  }
+
+  return currentToken;
 } 

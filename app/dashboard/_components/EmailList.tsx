@@ -3,7 +3,7 @@
 import React from "react";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, MailOpen, Trash2, Loader2 } from "lucide-react";
+import { Sparkles, Trash2, Loader2 } from "lucide-react";
 import { getCustomerPrompts } from "../actions";
 import { createClient } from "@/lib/auth/supabase/client";
 import { useRouter } from "next/navigation";
@@ -20,11 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 
-interface EmailListProps {
-  onEmailSelect: (emailId: string) => void;
-}
-
-export default function EmailList({ onEmailSelect }: EmailListProps) {
+export default function EmailList() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [emails, setEmails] = useState<Email[]>([]);
@@ -429,45 +425,43 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
           />
         </div>
         {totalEmails > 0 && (
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
-            {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
-            {totalEmails} emails
-          </p>
+          <div className="flex items-center justify-between h-8">
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * EMAILS_PER_PAGE + 1}-
+              {Math.min(currentPage * EMAILS_PER_PAGE, totalEmails)} of{" "}
+              {totalEmails} emails
+            </p>
+            {selectedEmails.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {selectedEmails.size} selected
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  disabled={deletingEmails.size > 0}
+                  className="h-8"
+                >
+                  {deletingEmails.size > 0 ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Selected
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto min-w-0">
-        {selectedEmails.size > 0 && (
-          <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center justify-between p-3 sm:p-4">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">
-                  {selectedEmails.size} selected
-                </span>
-              </div>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteSelected}
-                disabled={deletingEmails.size > 0}
-                className="h-8"
-              >
-                {deletingEmails.size > 0 ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Selected
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
         <div className="min-w-0">
           {emails.map((email: Email) => (
             <div
@@ -476,10 +470,10 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                 "border-b px-3 py-2 cursor-pointer transition-colors group",
                 isUnread(email)
                   ? "hover:bg-muted/50 bg-background"
-                  : "hover:bg-muted/50 bg-muted/50",
+                  : "hover:bg-blue-50/50 bg-blue-50/30 dark:hover:bg-blue-950/50 dark:bg-blue-950/30",
                 deletingEmails.has(email.id) && "opacity-50 pointer-events-none"
               )}
-              onClick={() => onEmailSelect(email.id)}
+              onClick={() => handleViewEmail(email)}
             >
               <div className="flex items-start gap-2">
                 <div
@@ -589,20 +583,6 @@ export default function EmailList({ onEmailSelect }: EmailListProps) {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Analyze Email</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => handleViewEmail(email)}
-                      >
-                        <MailOpen className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>View Email</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
