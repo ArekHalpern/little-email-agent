@@ -7,9 +7,8 @@ export async function GET(
   request: Request,
   context: { params: { id: string } }
 ) {
-  const messageId = context.params.id;
-
   try {
+    const messageId = context.params.id;
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 

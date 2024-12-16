@@ -21,6 +21,13 @@ export async function POST(req: Request) {
     // Take only the 5 most recent emails from the thread
     const recentEmails = threadContext.slice(0, 5);
 
+    // Get participants from email headers
+    const participants = new Set<string>();
+    recentEmails.forEach((email: Email) => {
+      if (email.from) participants.add(email.from);
+    });
+    if (emailContent.from) participants.add(emailContent.from);
+
     // Format thread context
     const threadSummary = recentEmails
       .map((email: Email) => {
@@ -58,7 +65,9 @@ Please provide the analysis in JSON format with the following structure:
   "main_points": ["Key point 1", "Key point 2", ...],
   "action_items": ["Action 1", "Action 2", ...],
   "sentiment": "positive/neutral/negative",
-  "key_dates": [{"date": "date string", "description": "what's happening"}]
+  "key_dates": [{"date": "date string", "description": "what's happening"}],
+  "participants": ["participant1@email.com", "participant2@email.com"],
+  "important_links": []
 }`
         }
       ],
@@ -72,7 +81,18 @@ Please provide the analysis in JSON format with the following structure:
     }
 
     const result = JSON.parse(content);
-    return NextResponse.json({ result });
+    
+    // Ensure all required fields exist
+    const finalResult = {
+      ...result,
+      participants: result.participants || Array.from(participants),
+      important_links: result.important_links || [],
+      key_dates: result.key_dates || [],
+      main_points: result.main_points || [],
+      action_items: result.action_items || [],
+    };
+
+    return NextResponse.json({ result: finalResult });
   } catch (error: unknown) {
     if (typeof error === 'object' && error !== null) {
       const openAIError = error as OpenAIError;
