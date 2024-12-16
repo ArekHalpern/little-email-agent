@@ -6,11 +6,10 @@ import { emailCache } from '@/lib/cache'
 import type { EmailCacheData } from '@/lib/cache'
 import type { Email } from '@/app/dashboard/types'
 
-// Create a separate cache for page tokens
-const pageTokenCache = new Map<string, string>();
-
 export async function GET(request: NextRequest) {
   try {
+    await emailCache.initialize();
+    
     const page = parseInt(request.nextUrl.searchParams.get('page') || '1');
     const search = request.nextUrl.searchParams.get('q') || '';
     const pageSize = 10;
@@ -22,23 +21,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Create cache key based on page and search
-    const cacheKey = `emails:${page}:${search}`;
-    const cachedData = emailCache.get(cacheKey);
-    
-    if (cachedData) {
-      return NextResponse.json(cachedData);
-    }
-
     const gmail = await getGmailClient(user.id);
 
-    // Add labelIds to only show inbox messages (exclude sent)
+    // Add some logging
+    console.log('Fetching emails for user:', user.id);
+
     const response = await gmail.users.messages.list({
       userId: 'me',
       maxResults: pageSize,
       q: search,
       labelIds: ['INBOX'],
-      pageToken: page > 1 ? await getPageToken(gmail, page, pageSize, search) : undefined,
+    });
+
+    // Log the response
+    console.log('Gmail response:', {
+      messagesCount: response.data.messages?.length,
+      totalResults: response.data.resultSizeEstimate,
     });
 
     const messages = response.data.messages || [];
@@ -73,51 +71,18 @@ export async function GET(request: NextRequest) {
       nextPageToken: response.data.nextPageToken || undefined,
     };
 
-    // Cache the results
-    emailCache.set(cacheKey, result);
+    // Log the processed result
+    console.log('Processed emails:', {
+      count: result.messages?.length,
+      totalEmails: result.totalEmails,
+    });
 
     return NextResponse.json(result);
   } catch (err) {
-    console.error('Unexpected error:', err);
+    console.error('Gmail fetch error:', err);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
-}
-
-// Helper function to get the correct page token
-async function getPageToken(
-  gmail: gmail_v1.Gmail,
-  targetPage: number,
-  pageSize: number,
-  search: string
-) {
-  const cacheKey = `pageToken:${targetPage}:${search}`;
-  const cachedToken = pageTokenCache.get(cacheKey);
-  
-  if (cachedToken) {
-    return cachedToken;
-  }
-
-  let currentPage = 1;
-  let currentToken: string | undefined = undefined;
-
-  while (currentPage < targetPage) {
-    const response: { data: gmail_v1.Schema$ListMessagesResponse } = await gmail.users.messages.list({
-      userId: 'me',
-      maxResults: pageSize,
-      pageToken: currentToken,
-      q: search,
-    });
-
-    currentToken = response.data.nextPageToken || undefined;
-    if (!currentToken) break;
-    
-    // Cache page tokens in separate cache
-    pageTokenCache.set(`pageToken:${currentPage + 1}:${search}`, currentToken);
-    currentPage++;
-  }
-
-  return currentToken;
 } 

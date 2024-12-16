@@ -13,7 +13,6 @@ export default function DashboardPage(): React.JSX.Element {
     <div className="h-full w-full flex flex-col min-w-0 overflow-hidden relative">
       <EmailListWrapper />
 
-      {/* Floating Compose Button */}
       <Button
         size="lg"
         className="fixed bottom-6 right-6 h-14 px-6 gap-2 shadow-lg"

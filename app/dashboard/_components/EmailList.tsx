@@ -56,10 +56,25 @@ export default function EmailList({
   const [emailToDelete, setEmailToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    if (debouncedSearch !== undefined) {
-      fetchEmails(0, 1);
+    async function fetchEmails() {
+      try {
+        // Initialize cache before using it
+        await emailCache.initialize();
+
+        const response = await fetch("/api/gmail/inbox?page=1");
+        const data = await response.json();
+
+        if (data.emails) {
+          setEmails(data.emails);
+          await emailCache.set("emails", data.emails);
+        }
+      } catch (error) {
+        console.error("Failed to fetch emails:", error);
+      }
     }
-  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    fetchEmails();
+  }, []);
 
   const fetchEmailsAndPrompts = useCallback(() => {
     fetchEmails(0, 1);
@@ -95,44 +110,29 @@ export default function EmailList({
         url.searchParams.append("q", debouncedSearch);
       }
 
-      const response = await fetch(url, {
-        cache: "no-store", // Prevent caching of GET request
-      });
+      console.log("Fetching emails from:", url.toString());
+      const response = await fetch(url);
       const data = await response.json();
 
-      if (response.status === 401) {
-        if (retryCount === 0) {
-          const supabase = createClient();
-          const {
-            data: { session },
-            error,
-          } = await supabase.auth.refreshSession();
-          if (!error && session) {
-            return fetchEmails(retryCount + 1, page);
-          }
-        }
-        setAuthError(
-          data.error || "Please authenticate with Gmail to view your emails"
-        );
-        return;
-      }
+      console.log("Email response:", data);
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to fetch emails");
       }
 
-      setEmails(data.messages);
-      setTotalEmails(data.totalEmails);
-      setCurrentPage(page);
+      if (!data.messages) {
+        console.warn("No messages in response:", data);
+      }
 
-      // Update cache with new data
-      const cacheKey = `emails:${page}:${debouncedSearch}`;
-      emailCache.set(cacheKey, data);
+      setEmails(data.messages || []);
+      setTotalEmails(data.totalEmails || 0);
+      setCurrentPage(page);
     } catch (error) {
       console.error("Error fetching emails:", error);
       setAuthError(
         error instanceof Error ? error.message : "Failed to fetch emails"
       );
+      setEmails([]);
     } finally {
       setLoading(false);
     }
@@ -512,127 +512,138 @@ export default function EmailList({
 
       <div className="flex-1 overflow-y-auto min-w-0">
         <div className="min-w-0">
-          {emails.map((email: Email) => (
-            <div
-              key={`email-${email.id}`}
-              className={cn(
-                "border-b px-3 py-2 cursor-pointer transition-colors group",
-                isUnread(email)
-                  ? "hover:bg-muted/50 bg-background"
-                  : "hover:bg-blue-50/50 bg-blue-50/30 dark:hover:bg-blue-950/50 dark:bg-blue-950/30",
-                deletingEmails.has(email.id) && "opacity-50 pointer-events-none"
-              )}
-              onClick={() => handleViewEmail(email)}
-            >
-              <div className="flex items-start gap-2">
-                <div
-                  className="pt-0.5 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Checkbox
-                    checked={selectedEmails.has(email.id)}
-                    onCheckedChange={(checked: boolean | "indeterminate") => {
-                      setSelectedEmails((prev) => {
-                        const newSet = new Set(prev);
-                        if (checked === true) {
-                          newSet.add(email.id);
-                        } else {
-                          newSet.delete(email.id);
-                        }
-                        return newSet;
-                      });
-                    }}
-                    className="translate-y-[2px]"
-                  />
-                </div>
-
-                <div className="flex-1 min-w-0 pr-2">
-                  <div className="flex items-baseline justify-between gap-2 mb-0.5">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span
-                        className={cn(
-                          "text-sm flex-1 overflow-hidden text-ellipsis",
-                          isUnread(email)
-                            ? "font-semibold"
-                            : "font-medium text-muted-foreground"
-                        )}
-                      >
-                        {getEmailFrom(email)}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-end shrink-0">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {email.internalDate
-                          ? formatDateTime(email.internalDate).date
-                          : ""}
-                      </span>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        {email.internalDate
-                          ? formatDateTime(email.internalDate).time
-                          : ""}
-                      </span>
-                    </div>
+          {loading ? (
+            <LoadingEmails />
+          ) : emails?.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full p-4">
+              <p className="text-muted-foreground">
+                {authError ? authError : "No emails found"}
+              </p>
+            </div>
+          ) : (
+            emails.map((email: Email) => (
+              <div
+                key={`email-${email.id}`}
+                className={cn(
+                  "border-b px-3 py-2 cursor-pointer transition-colors group",
+                  isUnread(email)
+                    ? "hover:bg-muted/50 bg-background"
+                    : "hover:bg-blue-50/50 bg-blue-50/30 dark:hover:bg-blue-950/50 dark:bg-blue-950/30",
+                  deletingEmails.has(email.id) &&
+                    "opacity-50 pointer-events-none"
+                )}
+                onClick={() => handleViewEmail(email)}
+              >
+                <div className="flex items-start gap-2">
+                  <div
+                    className="pt-0.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={selectedEmails.has(email.id)}
+                      onCheckedChange={(checked: boolean | "indeterminate") => {
+                        setSelectedEmails((prev) => {
+                          const newSet = new Set(prev);
+                          if (checked === true) {
+                            newSet.add(email.id);
+                          } else {
+                            newSet.delete(email.id);
+                          }
+                          return newSet;
+                        });
+                      }}
+                      className="translate-y-[2px]"
+                    />
                   </div>
-                  <h3
-                    className={cn(
-                      "text-sm truncate mb-0.5",
-                      isUnread(email) && "font-medium"
-                    )}
-                  >
-                    {getEmailSubject(email)}
-                  </h3>
-                  <p
-                    className={cn(
-                      "text-xs truncate",
-                      isUnread(email)
-                        ? "text-foreground"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {email.snippet}
-                  </p>
-                </div>
 
-                <div className="flex items-start gap-1 shrink-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => handleReply(e, email.id)}
-                      >
-                        <Reply className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Reply</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        onClick={(e) => handleDeleteClick(e, email.id)}
-                        disabled={deletingEmail === email.id}
-                      >
-                        {deletingEmail === email.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {deletingEmail === email.id
-                        ? "Deleting..."
-                        : "Delete Email"}
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "text-sm flex-1 overflow-hidden text-ellipsis",
+                            isUnread(email)
+                              ? "font-semibold"
+                              : "font-medium text-muted-foreground"
+                          )}
+                        >
+                          {getEmailFrom(email)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {email.internalDate
+                            ? formatDateTime(email.internalDate).date
+                            : ""}
+                        </span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {email.internalDate
+                            ? formatDateTime(email.internalDate).time
+                            : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <h3
+                      className={cn(
+                        "text-sm truncate mb-0.5",
+                        isUnread(email) && "font-medium"
+                      )}
+                    >
+                      {getEmailSubject(email)}
+                    </h3>
+                    <p
+                      className={cn(
+                        "text-xs truncate",
+                        isUnread(email)
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {email.snippet}
+                    </p>
+                  </div>
+
+                  <div className="flex items-start gap-1 shrink-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={(e) => handleReply(e, email.id)}
+                        >
+                          <Reply className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reply</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          onClick={(e) => handleDeleteClick(e, email.id)}
+                          disabled={deletingEmail === email.id}
+                        >
+                          {deletingEmail === email.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {deletingEmail === email.id
+                          ? "Deleting..."
+                          : "Delete Email"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -686,6 +697,18 @@ export default function EmailList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function LoadingEmails() {
+  return (
+    <div className="space-y-2 p-4">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="animate-pulse flex space-x-4">
+          <div className="h-12 bg-muted rounded w-full" />
+        </div>
+      ))}
     </div>
   );
 }

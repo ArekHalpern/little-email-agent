@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { createCustomer } from '@/lib/db/actions'
 import { createClient } from '@/lib/auth/supabase/server'
 import { randomUUID } from 'crypto'
+import { syncEmails } from '@/lib/cache/syncEmails'
 
 async function ensureCustomer(userId: string) {
   const customer = await prisma.customer.findUnique({
@@ -77,4 +78,16 @@ export async function getCustomerPrompts(userId: string) {
       createdAt: 'desc'
     }
   })
+}
+
+export async function syncUserEmails() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (user) {
+    await syncEmails(user.id)
+    return { success: true }
+  }
+  
+  return { success: false, error: 'No user found' }
 }

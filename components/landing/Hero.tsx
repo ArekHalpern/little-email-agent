@@ -7,10 +7,10 @@ export default function Hero() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              Little Email Agent
+              Little Email Assistant
             </h1>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              Structured email summmaries so you can get to the good stuff.
+              Email summaries and suggestions.
             </p>
             <div className="mt-10">
               <GoogleAuth mode="signup" />

@@ -3,10 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/auth/supabase/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/db/prisma'
 import { randomUUID } from 'crypto'
-
-const prisma = new PrismaClient()
+import { initializeUserCache } from '@/lib/cache/initializeCache'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -16,10 +15,14 @@ export async function login(formData: FormData) {
     password: formData.get('password') as string,
   }
 
-  const { error } = await supabase.auth.signInWithPassword(data)
+  const { data: { user }, error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
     redirect('/error')
+  }
+
+  if (user) {
+    await initializeUserCache(user.id)
   }
 
   revalidatePath('/', 'layout')
