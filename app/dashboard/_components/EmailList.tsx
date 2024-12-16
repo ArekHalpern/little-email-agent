@@ -19,6 +19,8 @@ import { useToast } from "@/lib/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/lib/hooks/use-debounce";
+import { emailCache } from "@/lib/cache";
+import { EmailCacheData } from "@/lib/cache";
 
 export default function EmailList() {
   const router = useRouter();
@@ -142,10 +144,22 @@ export default function EmailList() {
     }
   };
 
-  const handleViewEmail = (email: Email) => {
+  const handleViewEmail = async (email: Email) => {
     setSelectedEmail({ email });
 
-    // Fetch thread if it exists
+    // Check cache first
+    const cacheKey = `email:${email.id}`;
+    const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+
+    if (cachedData?.email && cachedData?.thread) {
+      setSelectedEmail({
+        email: cachedData.email,
+        thread: cachedData.thread,
+      });
+      return;
+    }
+
+    // Fetch thread if it exists and not in cache
     if (email.threadId) {
       fetchEmailThread(email.threadId);
     }
@@ -153,9 +167,27 @@ export default function EmailList() {
 
   const fetchEmailThread = async (threadId: string) => {
     try {
+      const cacheKey = `email:${threadId}`;
+      const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+
+      if (cachedData?.email && cachedData?.thread) {
+        setSelectedEmail((prev) => ({
+          ...prev!,
+          thread: cachedData.thread,
+        }));
+        return;
+      }
+
       const response = await fetch(`/api/gmail/messages/${threadId}`);
       if (!response.ok) throw new Error("Failed to fetch thread");
       const data = await response.json();
+
+      // Cache the response
+      emailCache.set(cacheKey, {
+        email: data.email,
+        thread: data.thread,
+      });
+
       setSelectedEmail((prev) => ({
         ...prev!,
         thread: data.thread,

@@ -1,9 +1,11 @@
 "use client";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Email, EmailThread } from "../types";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { emailCache } from "@/lib/cache";
+import { EmailCacheData } from "@/lib/cache";
 
 function getEmailSubject(email: Email) {
   return (
@@ -66,9 +68,27 @@ export function EmailViewModal({
 
       const fetchThread = async () => {
         try {
+          // Check cache first
+          const cacheKey = `email:${email.id}`;
+          const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+
+          if (cachedData?.email && cachedData?.thread) {
+            setEmailData(cachedData.email);
+            setThreadData(cachedData.thread);
+            setIsLoading(false);
+            return;
+          }
+
           const response = await fetch(`/api/gmail/messages/${email.id}`);
           if (!response.ok) throw new Error("Failed to fetch thread");
           const data = await response.json();
+
+          // Cache the response
+          emailCache.set(cacheKey, {
+            email: data.email,
+            thread: data.thread,
+          });
+
           setEmailData(data.email);
           setThreadData(data.thread);
         } catch (error) {
@@ -85,6 +105,9 @@ export function EmailViewModal({
   return (
     <Dialog open={isOpen} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
+        <DialogTitle className="sr-only">
+          {emailData ? getEmailSubject(emailData) : "Email View"}
+        </DialogTitle>
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
