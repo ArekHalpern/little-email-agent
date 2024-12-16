@@ -20,6 +20,16 @@ import { useToast } from "@/lib/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/lib/hooks/use-debounce";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function EmailList({
   onReply,
@@ -43,6 +53,7 @@ export default function EmailList({
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [deletingEmails, setDeletingEmails] = useState<Set<string>>(new Set());
   const [deletingEmail, setDeletingEmail] = useState<string | null>(null);
+  const [emailToDelete, setEmailToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (debouncedSearch !== undefined) {
@@ -157,8 +168,7 @@ export default function EmailList({
     router.push(`/dashboard/email/${email.id}`);
   };
 
-  const handleDeleteEmail = async (e: React.MouseEvent, emailId: string) => {
-    e.stopPropagation();
+  const handleDeleteEmail = async (emailId: string) => {
     setDeletingEmail(emailId);
 
     try {
@@ -259,6 +269,21 @@ export default function EmailList({
       await fetchEmails(0, currentPage);
     } finally {
       setDeletingEmails(new Set());
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, emailId: string) => {
+    e.stopPropagation();
+    setEmailToDelete(emailId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!emailToDelete) return;
+
+    try {
+      await handleDeleteEmail(emailToDelete);
+    } finally {
+      setEmailToDelete(null);
     }
   };
 
@@ -582,8 +607,21 @@ export default function EmailList({
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => handleReply(e, email.id)}
+                      >
+                        <Reply className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        onClick={(e) => handleDeleteEmail(e, email.id)}
+                        onClick={(e) => handleDeleteClick(e, email.id)}
                         disabled={deletingEmail === email.id}
                       >
                         {deletingEmail === email.id ? (
@@ -598,37 +636,6 @@ export default function EmailList({
                         ? "Deleting..."
                         : "Delete Email"}
                     </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          processEmail(email.id);
-                        }}
-                      >
-                        <Sparkles className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Analyze Email</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => handleReply(e, email.id)}
-                      >
-                        <Reply className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Reply</TooltipContent>
                   </Tooltip>
                 </div>
               </div>
@@ -663,6 +670,30 @@ export default function EmailList({
         email={selectedEmail?.email || null}
         onReply={onReply}
       />
+
+      <AlertDialog
+        open={!!emailToDelete}
+        onOpenChange={() => setEmailToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This email will be moved to trash. You can restore it from the
+              trash folder within 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

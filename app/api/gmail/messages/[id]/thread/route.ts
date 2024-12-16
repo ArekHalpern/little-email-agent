@@ -4,15 +4,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import type { NextRequest } from "next/server";
 
-type RouteParams = {
-  params: {
-    id: string;
-  };
-};
-
 export async function GET(
   request: NextRequest,
-  { params }: RouteParams
+  { params }: { params: { id: string } }
 ) {
   const supabase = createClient();
 
@@ -26,8 +20,7 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Then get the message ID from params
-    const messageId = params.id;
+    const messageId = await Promise.resolve(params.id);
 
     const customer = await prisma.customer.findUnique({
       where: { auth_user_id: user.id },
@@ -59,14 +52,52 @@ export async function GET(
       userId: "me",
       id: message.data.threadId,
       format: "full",
-      metadataHeaders: ["From", "Subject", "Date"],
+      metadataHeaders: ["From", "To", "Subject", "Message-ID", "References", "In-Reply-To"],
     });
 
-    const sortedMessages = (thread.data.messages || [message.data])
+    // Create a map to track unique messages
+    const uniqueMessages = new Map();
+    const seenContent = new Set();
+
+    thread.data.messages?.forEach((msg) => {
+      // Get message content hash (using snippet as a simple way to compare content)
+      const contentHash = msg.snippet;
+      const messageId = msg.id;
+      const from = msg.payload?.headers?.find(h => h.name?.toLowerCase() === "from")?.value;
+      const references = msg.payload?.headers?.find(h => h.name?.toLowerCase() === "references")?.value;
+      const inReplyTo = msg.payload?.headers?.find(h => h.name?.toLowerCase() === "in-reply-to")?.value;
+
+      // Skip if we've seen this content before
+      if (contentHash && seenContent.has(contentHash)) {
+        return;
+      }
+
+      // If this is a reply, make sure we keep the latest version
+      if (references || inReplyTo) {
+        const existingMsg = uniqueMessages.get(messageId);
+        if (existingMsg) {
+          const existingDate = parseInt(existingMsg.internalDate || "0");
+          const newDate = parseInt(msg.internalDate || "0");
+          if (newDate > existingDate) {
+            uniqueMessages.set(messageId, msg);
+          }
+        } else {
+          uniqueMessages.set(messageId, msg);
+        }
+      } else {
+        uniqueMessages.set(messageId, msg);
+      }
+
+      if (contentHash) {
+        seenContent.add(contentHash);
+      }
+    });
+
+    const sortedMessages = Array.from(uniqueMessages.values())
       .sort((a, b) => {
         const dateA = parseInt(a.internalDate || "0");
         const dateB = parseInt(b.internalDate || "0");
-        return dateB - dateA;
+        return dateB - dateA;  // Newest first
       });
 
     return NextResponse.json({ 

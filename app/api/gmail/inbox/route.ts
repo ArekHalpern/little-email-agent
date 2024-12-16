@@ -32,11 +32,12 @@ export async function GET(request: NextRequest) {
 
     const gmail = await getGmailClient(user.id);
 
-    // Get messages list with partial data to reduce API calls
+    // Add labelIds to only show inbox messages (exclude sent)
     const response = await gmail.users.messages.list({
       userId: 'me',
       maxResults: pageSize,
       q: search,
+      labelIds: ['INBOX'],
       pageToken: page > 1 ? await getPageToken(gmail, page, pageSize, search) : undefined,
     });
 
