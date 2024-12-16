@@ -11,6 +11,7 @@ import { emailCache, EmailCacheData } from "@/lib/cache";
 import { EditorToolbar } from "./editor-toolbar";
 import { cn } from "@/lib/utils";
 import { AutocompleteExtension } from "./extensions/autocomplete";
+import { useToast } from "@/lib/hooks/use-toast";
 
 interface ComposerProps {
   emailId: string | null; // null for new email, string for reply
@@ -18,6 +19,7 @@ interface ComposerProps {
 }
 
 export function Composer({ emailId, onClose }: ComposerProps) {
+  const { toast } = useToast();
   const [originalEmail, setOriginalEmail] = useState<Email | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -107,15 +109,36 @@ export function Composer({ emailId, onClose }: ComposerProps) {
   };
 
   const handleSend = async () => {
-    if (!editor?.getText()) return;
+    if (!editor?.getText() || !recipient || recipientError) return;
 
     try {
       setIsSending(true);
-      // TODO: Implement send functionality
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const response = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: recipient,
+          subject,
+          content: editor.getHTML(),
+          type: emailId ? "reply" : "new",
+          threadId: emailId || undefined,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to send email");
+
+      toast({
+        title: "Email sent",
+        description: "Your email has been sent successfully",
+      });
       onClose();
     } catch (error) {
       console.error("Error sending email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSending(false);
     }

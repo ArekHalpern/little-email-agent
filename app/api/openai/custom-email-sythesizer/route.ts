@@ -6,28 +6,32 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Add this helper function to truncate content
-function truncateContent(content: string, maxLength: number = 100000): string {
-  if (content.length <= maxLength) return content;
-  return content.slice(0, maxLength) + "... [truncated]";
+interface OpenAIError {
+  code?: string;
+  message: string;
+  type?: string;
+  param?: string;
+  status?: number;
 }
 
 export async function POST(req: Request) {
   try {
     const { emailContent, threadContext } = await req.json();
 
-    // Format and truncate the thread context
-    const threadSummary = threadContext
+    // Take only the 5 most recent emails from the thread
+    const recentEmails = threadContext.slice(0, 5);
+
+    // Format thread context
+    const threadSummary = recentEmails
       .map((email: Email) => {
         const from = email.from;
         const date = new Date(parseInt(email.internalDate || "0")).toLocaleString();
         const content = getEmailBody(email);
-        return `From: ${from}\nDate: ${date}\nContent: ${truncateContent(content)}\n---\n`;
+        return `From: ${from}\nDate: ${date}\nContent: ${content}\n---\n`;
       })
       .join("\n");
 
-    // Truncate the current email content
-    const currentEmailContent = truncateContent(getEmailBody(emailContent));
+    const currentEmailContent = getEmailBody(emailContent);
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -40,7 +44,7 @@ export async function POST(req: Request) {
           role: "user",
           content: `Please analyze this email thread and provide a summary, main points, action items, and sentiment analysis.
 
-Thread Context:
+Thread Context (Last ${recentEmails.length} emails):
 ${threadSummary}
 
 Current Email:
@@ -69,9 +73,17 @@ Please provide the analysis in JSON format with the following structure:
 
     const result = JSON.parse(content);
     return NextResponse.json({ result });
-  } catch (error) {
-    console.error("Error analyzing email:", error);
-    return new NextResponse("Error analyzing email", { status: 500 });
+  } catch (error: unknown) {
+    if (typeof error === 'object' && error !== null) {
+      const openAIError = error as OpenAIError;
+      if (openAIError.code === 'context_length_exceeded') {
+        return new NextResponse(JSON.stringify({
+          error: "context_length_exceeded",
+          message: "Email thread too long for initial analysis, switching to advanced model..."
+        }), { status: 413 });
+      }
+    }
+    throw error;
   }
 }
 

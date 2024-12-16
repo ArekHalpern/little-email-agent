@@ -9,18 +9,22 @@ import { useState } from "react";
 import { EditorToolbar } from "./editor-toolbar";
 import { AutocompleteExtension } from "./extensions/autocomplete";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/lib/hooks/use-toast";
 
 interface EmailReplyComposerProps {
   onClose: () => void;
   inThread?: boolean;
   className?: string;
+  threadId?: string;
 }
 
 export function EmailReplyComposer({
   onClose,
   inThread,
   className,
+  threadId,
 }: EmailReplyComposerProps) {
+  const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
   const [isSuggestLoading, setIsSuggestLoading] = useState(false);
 
@@ -70,15 +74,34 @@ export function EmailReplyComposer({
   };
 
   const handleSend = async () => {
-    if (!editor?.getText()) return;
+    if (!editor?.getText() || !threadId) return;
 
     try {
       setIsSending(true);
-      // TODO: Implement send functionality
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const response = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId,
+          content: editor.getHTML(),
+          type: "reply",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to send email");
+
+      toast({
+        title: "Email sent",
+        description: "Your reply has been sent successfully",
+      });
       onClose();
     } catch (error) {
       console.error("Error sending reply:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSending(false);
     }

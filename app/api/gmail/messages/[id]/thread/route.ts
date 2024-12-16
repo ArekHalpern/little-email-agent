@@ -3,15 +3,11 @@ import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-export async function GET(request: Request, { params }: RouteParams) {
-  const resolvedParams = await params;
-  const messageId = resolvedParams.id;
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const messageId = params.id;
 
   try {
     const supabase = createClient();

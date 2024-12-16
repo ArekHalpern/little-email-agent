@@ -6,14 +6,6 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
-// Add helper to truncate input tokens
-function truncateInput(text: string, maxLength: number = 8000): string {
-  // Rough approximation: 1 token ≈ 4 characters
-  const maxChars = maxLength * 4;
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "... [truncated]";
-}
-
 // Add interface for Anthropic API error
 interface AnthropicError {
   status?: number;
@@ -27,19 +19,18 @@ export async function POST(req: Request) {
   try {
     const { emailContent, threadContext } = await req.json();
 
-    // Format and truncate the thread context
+    // Format the thread context without truncation
     const threadSummary = threadContext
-      .slice(0, 3) // Only use last 3 emails for context
       .map((email: Email) => {
         const from = email.from;
         const date = new Date(parseInt(email.internalDate || "0")).toLocaleString();
-        const content = truncateInput(getEmailBody(email), 2000); // Limit each email
+        const content = getEmailBody(email);
         return `From: ${from}\nDate: ${date}\nContent: ${content}\n---\n`;
       })
       .join("\n");
 
-    // Truncate current email content
-    const currentEmailContent = truncateInput(getEmailBody(emailContent), 4000);
+    // Use full email content
+    const currentEmailContent = getEmailBody(emailContent);
 
     try {
       const response = await anthropic.messages.create({
