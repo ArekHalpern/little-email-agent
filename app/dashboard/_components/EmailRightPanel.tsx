@@ -2,21 +2,23 @@ import { EmailReplyComposer } from "./EmailReplyComposer";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EmailSummaryData } from "../types";
+import { EmailSummaryData, Summary } from "../types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface EmailRightPanelProps {
   isReplying: boolean;
   onCloseReply: () => void;
   showAnalysis: boolean;
   isAnalyzing?: boolean;
-  summary?: EmailSummaryData | null;
+  summary?: Summary | null;
   className?: string;
   threadId?: string;
   wordCount: number;
   onAnalyze: (endpoint: "openai" | "anthropic") => void;
+  onCheckItem?: (item: string) => void;
 }
 
 export function EmailRightPanel({
@@ -27,6 +29,7 @@ export function EmailRightPanel({
   threadId,
   wordCount,
   onAnalyze,
+  onCheckItem,
 }: EmailRightPanelProps) {
   return (
     <div className={cn("w-[380px] flex-shrink-0 border-l", className)}>
@@ -110,31 +113,58 @@ export function EmailRightPanel({
 
               {summary && (
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={
+                          summary.summary.sentiment === "positive"
+                            ? "success"
+                            : summary.summary.sentiment === "negative"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="px-2 py-1"
+                      >
+                        {summary.summary.sentiment}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Generated {new Date(summary.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
                   <div>
                     <h4 className="text-sm font-medium mb-2">Key Points</h4>
                     <p className="text-sm text-muted-foreground">
-                      {summary.summary}
+                      {summary.summary.summary}
                     </p>
                   </div>
 
-                  {summary.action_items && summary.action_items.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Action Items</h4>
-                      <ul className="space-y-2">
-                        {summary.action_items.map((item, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-muted"
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              {item}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {summary.summary.action_items &&
+                    summary.summary.action_items.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">
+                          Action Items
+                        </h4>
+                        <ul className="space-y-2">
+                          {summary.summary.action_items.map((item, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 rounded border-muted"
+                                checked={summary.checkedActionItems.includes(
+                                  item
+                                )}
+                                onChange={() => onCheckItem?.(item)}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                {item}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               )}
             </div>

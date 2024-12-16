@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { Email, EmailSummaryData } from "../../types";
+import { Email } from "../../types";
 import { EmailThread } from "../../_components/EmailThread";
 import { EmailRightPanel } from "../../_components/EmailRightPanel";
 import { getThreadWordCount } from "@/lib/wordCount";
+import { emailCache, EmailCacheData } from "@/lib/cache";
+import type { Summary } from "../../types";
 
 export default function EmailViewPage() {
   const params = useParams();
@@ -20,7 +22,7 @@ export default function EmailViewPage() {
   const [currentEmail, setCurrentEmail] = useState<Email | null>(null);
   const [wordCount, setWordCount] = useState<number>(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [summary, setSummary] = useState<EmailSummaryData | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
     const fetchThread = async () => {
@@ -52,7 +54,12 @@ export default function EmailViewPage() {
 
     try {
       setIsAnalyzing(true);
-      const response = await fetch(`/api/${endpoint}/analyze-email`, {
+      const apiEndpoint =
+        endpoint === "openai"
+          ? "/api/openai/custom-email-sythesizer"
+          : "/api/anthropic/analyze-email";
+
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -62,12 +69,119 @@ export default function EmailViewPage() {
       });
 
       if (!response.ok) throw new Error("Analysis failed");
-      const data = await response.json();
-      setSummary(data.result);
+      const { result } = await response.json();
+
+      // Save the summary to the database
+      const saveResponse = await fetch("/api/email-summaries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailId,
+          summary: result,
+        }),
+      });
+
+      if (!saveResponse.ok) throw new Error("Failed to save summary");
+
+      const savedSummary = await saveResponse.json();
+      setSummary(savedSummary);
+
+      // Cache the summary
+      const cacheKey = `summary:${emailId}`;
+      const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+      if (cachedData?.email) {
+        emailCache.set(cacheKey, {
+          ...cachedData,
+          summary: savedSummary,
+        });
+      }
     } catch (error) {
       console.error("Analysis error:", error);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Add effect to load cached summary
+  useEffect(() => {
+    const loadCachedSummary = async () => {
+      // Check cache first
+      const cacheKey = `summary:${emailId}`;
+      const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+
+      if (cachedData?.summary) {
+        setSummary(cachedData.summary);
+        return;
+      }
+
+      // If not in cache, try to fetch from API
+      try {
+        const response = await fetch(`/api/email-summaries?emailId=${emailId}`);
+        if (response.ok) {
+          const summaryData = await response.json();
+          setSummary(summaryData);
+
+          // Cache the fetched summary
+          if (cachedData?.email) {
+            emailCache.set(cacheKey, {
+              ...cachedData,
+              summary: summaryData,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading summary:", error);
+      }
+    };
+
+    if (emailId) {
+      loadCachedSummary();
+    }
+  }, [emailId]);
+
+  const handleCheckItem = async (item: string) => {
+    if (!summary) return;
+
+    try {
+      const newCheckedItems = summary.checkedActionItems.includes(item)
+        ? summary.checkedActionItems.filter((i) => i !== item)
+        : [...summary.checkedActionItems, item];
+
+      const response = await fetch("/api/email-summaries/checked-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailId,
+          checkedItems: newCheckedItems,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update checked items");
+
+      // Update local state
+      setSummary((prev) =>
+        prev
+          ? {
+              ...prev,
+              checkedActionItems: newCheckedItems,
+            }
+          : null
+      );
+
+      // Update cache
+      const cacheKey = `summary:${emailId}`;
+      const cachedData = emailCache.get(cacheKey) as EmailCacheData;
+      if (cachedData?.summary) {
+        emailCache.set(cacheKey, {
+          ...cachedData,
+          summary: {
+            ...cachedData.summary,
+            checkedActionItems: newCheckedItems,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error updating checked items:", error);
     }
   };
 
@@ -109,6 +223,7 @@ export default function EmailViewPage() {
         summary={summary}
         wordCount={wordCount}
         onAnalyze={handleAnalyze}
+        onCheckItem={handleCheckItem}
       />
     </div>
   );

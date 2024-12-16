@@ -5,9 +5,9 @@ import { prisma } from "@/lib/db/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
-  const messageId = params.id;
+  const messageId = context.params.id;
 
   try {
     const supabase = createClient();
