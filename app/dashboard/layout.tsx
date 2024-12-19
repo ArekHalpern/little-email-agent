@@ -1,9 +1,8 @@
 import { cookies } from "next/headers";
 import {
   SidebarProvider,
-  SidebarInset,
-  Sidebar,
   SidebarTrigger,
+  SidebarInset,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "./_components/app-sidebar";
 import { Menu } from "lucide-react";
@@ -18,19 +17,17 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <div className="flex h-screen w-full">
-        <Sidebar variant="inset" collapsible="icon" className="h-screen">
-          <AppSidebar />
-        </Sidebar>
-        <SidebarInset className="flex h-screen flex-1 flex-col bg-background min-w-0">
-          <div className="flex h-12 items-center bg-background px-4 border-b md:hidden">
-            <SidebarTrigger className="h-8 w-8 p-0">
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1">
               <Menu className="h-4 w-4" />
             </SidebarTrigger>
           </div>
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </SidebarInset>
-      </div>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

@@ -11,7 +11,7 @@ export default {
   theme: {
   	extend: {
   		screens: {
-  			'xs': '480px',
+  			xs: '480px'
   		},
   		colors: {
   			background: 'hsl(var(--background))',
@@ -71,8 +71,10 @@ export default {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		fontFamily: {
-  			sans: ['var(--font-mono)'],
-  		},
+  			sans: [
+  				'var(--font-mono)'
+  			]
+  		}
   	}
   },
   plugins: [tailwindAnimate],
